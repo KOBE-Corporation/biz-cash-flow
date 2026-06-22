@@ -1,22 +1,36 @@
-### Building and running your application
+### Demarrage avec Docker
 
-When you're ready, start your application by running:
-`docker compose up --build`.
+1. Copiez le fichier d'environnement :
+   ```bash
+   cp .env.example .env
+   ```
+2. Modifiez `setup/.env` avec vos mots de passe (ne jamais committer ce fichier).
+3. Lancez les services :
+   ```bash
+   docker compose up --build
+   ```
 
-Your application will be available at http://localhost:3000.
+L'application sera disponible sur http://localhost:3000  
+PostgreSQL sera accessible sur le port `5432`.
 
-### Deploying your application to the cloud
+### Services
 
-First, build your image, e.g.: `docker build -t myapp .`.
-If your cloud uses a different CPU architecture than your development
-machine (e.g., you are on a Mac M1 and your cloud provider is amd64),
-you'll want to build the image for that platform, e.g.:
-`docker build --platform=linux/amd64 -t myapp .`.
+| Service | Description |
+|---------|-------------|
+| `app`   | Application Next.js |
+| `db`    | PostgreSQL 16 |
 
-Then, push it to your registry, e.g. `docker push myregistry.com/myapp`.
+### Commandes utiles
 
-Consult Docker's [getting started](https://docs.docker.com/go/get-started-sharing/)
-docs for more detail on building and pushing.
+```bash
+# Appliquer le schema Prisma (depuis le conteneur app)
+docker compose exec app npx prisma db push
 
-### References
-* [Docker's Node.js guide](https://docs.docker.com/language/nodejs/)
+# Ouvrir Prisma Studio
+docker compose exec app npx prisma studio
+```
+
+### Notes
+
+- Le fichier `setup/.env` est ignore par Git. Utilisez `setup/.env.example` comme reference.
+- Le contexte de build Docker pointe vers la racine du projet (`..`).

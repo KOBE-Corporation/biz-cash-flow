@@ -1,0 +1,2 @@
+/** Hooks React partages */
+export {};
