@@ -1,36 +1,11 @@
 @import "tailwindcss";
 
-/* ─── Light ─── */
-:root {
-  --background: #f4f4f5;
-  --foreground: #09090b;
-  --card: #ffffff;
-  --card-foreground: #09090b;
-  --popover: #ffffff;
-  --popover-foreground: #09090b;
-  --surface: #ffffff;
-  --surface-2: #f4f4f5;
-  --surface-active: #e4e4e7;
-  --primary: #c4923a;
-  --primary-foreground: #09090b;
-  --accent: #c4923a;
-  --accent-foreground: #09090b;
-  --muted: #71717a;
-  --muted-foreground: #71717a;
-  --border: #e4e4e7;
-  --input: #e4e4e7;
-  --ring: #c4923a;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --success: #22c55e;
-  --success-foreground: #ffffff;
-  --warning: #f59e0b;
-  --warning-foreground: #09090b;
-  --radius: 0.75rem;
-}
+@custom-variant dark (&:where(.dark, .dark *));
 
-/* ─── Dark (noir pur) ─── */
+/* ─── Dark (noir pur) — thème par défaut ─── */
+:root,
 .dark {
+  color-scheme: dark;
   --background: #000000;
   --foreground: #ffffff;
   --card: #141414;
@@ -55,6 +30,36 @@
   --success-foreground: #000000;
   --warning: #f59e0b;
   --warning-foreground: #000000;
+  --radius: 0.75rem;
+}
+
+/* ─── Light ─── */
+.light {
+  color-scheme: light;
+  --background: #f4f4f5;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+  --surface: #ffffff;
+  --surface-2: #f4f4f5;
+  --surface-active: #e4e4e7;
+  --primary: #c4923a;
+  --primary-foreground: #09090b;
+  --accent: #c4923a;
+  --accent-foreground: #09090b;
+  --muted: #71717a;
+  --muted-foreground: #71717a;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #c4923a;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --success: #22c55e;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #09090b;
 }
 
 @theme inline {
@@ -87,6 +92,12 @@
 }
 
 body {
+  background: #000000;
   background: var(--background);
   color: var(--foreground);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
 }

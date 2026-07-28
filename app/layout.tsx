@@ -23,9 +23,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" suppressHydrationWarning>
-      <body className={`${inter.variable} min-h-full font-sans antialiased`}>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+    <html lang="fr" className="dark" suppressHydrationWarning>
+      <body className={`${inter.variable} min-h-full bg-background font-sans text-foreground antialiased`}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          storageKey="bcf-theme"
+        >
           {children}
         </ThemeProvider>
       </body>
