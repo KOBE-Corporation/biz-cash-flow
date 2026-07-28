@@ -1,8 +1,10 @@
 import { CURRENT_USER } from "@/lib/auth/current-user";
+import { createPackLevelId, generateBarcode } from "@/lib/sales/pricing";
 import type {
   Category,
   Invoice,
   Product,
+  ProductSupplierOffer,
   Purchase,
   StockMovement,
   Supplier,
@@ -13,7 +15,7 @@ export function createId(prefix = "id") {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`;
 }
 
-const now = () => new Date();
+const touchDate = () => new Date();
 
 const seedUser: User = {
   id: "u1",
@@ -27,7 +29,11 @@ const seedCategories: Category[] = [
   {
     id: "c1",
     name: "Smartphones",
-    description: "Telephones et accessoires premium",
+    description: "Telephones",
+    baseUnitName: "piece",
+    packLevels: [
+      { id: "pl_s1", name: "piece", unitsOfBase: 1 },
+    ],
     isActive: true,
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
@@ -35,18 +41,41 @@ const seedCategories: Category[] = [
   {
     id: "c2",
     name: "Accessoires",
-    description: "Cables, coques, audio, energie",
+    description: "Cables, coques, energie",
+    baseUnitName: "piece",
+    packLevels: [{ id: "pl_a1", name: "piece", unitsOfBase: 1 }],
     isActive: true,
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
   },
   {
-    id: "c3",
-    name: "Audio",
-    description: "Casques et enceintes",
+    id: "c4",
+    name: "Cigarettes",
+    description: "Paquet / cartouche / carton",
+    baseUnitName: "paquet",
+    packLevels: [
+      { id: "pl_cig1", name: "paquet", unitsOfBase: 1 },
+      { id: "pl_cig2", name: "cartouche", unitsOfBase: 20 },
+      { id: "pl_cig3", name: "carton", unitsOfBase: 200 },
+    ],
     isActive: true,
-    createdAt: new Date("2026-02-01"),
-    updatedAt: new Date("2026-02-01"),
+    createdAt: new Date("2026-01-01"),
+    updatedAt: new Date("2026-01-01"),
+  },
+  {
+    id: "c5",
+    name: "Bieres",
+    description: "Bouteille / casiers 12-15-24",
+    baseUnitName: "bouteille",
+    packLevels: [
+      { id: "pl_b1", name: "bouteille", unitsOfBase: 1 },
+      { id: "pl_b2", name: "casier 12", unitsOfBase: 12 },
+      { id: "pl_b3", name: "casier 15", unitsOfBase: 15 },
+      { id: "pl_b4", name: "casier 24", unitsOfBase: 24 },
+    ],
+    isActive: true,
+    createdAt: new Date("2026-01-01"),
+    updatedAt: new Date("2026-01-01"),
   },
 ];
 
@@ -81,10 +110,41 @@ const seedSuppliers: Supplier[] = [
     createdAt: new Date("2026-03-01"),
     updatedAt: new Date("2026-03-01"),
   },
+  {
+    id: "s4",
+    name: "Boissons CI",
+    email: "cmd@boissons.ci",
+    phone: "+225 07 11 22 33",
+    isActive: true,
+    createdAt: new Date("2026-01-01"),
+    updatedAt: new Date("2026-01-01"),
+  },
 ];
 
+function pieceProduct(
+  partial: Omit<Product, "barcode" | "baseUnitName" | "packLevels"> & {
+    barcode?: string;
+    baseUnitName?: string;
+  },
+): Product {
+  const base = partial.baseUnitName ?? "piece";
+  return {
+    ...partial,
+    barcode: partial.barcode ?? generateBarcode(partial.sku),
+    baseUnitName: base,
+    packLevels: [
+      {
+        id: createPackLevelId(),
+        name: base,
+        unitsOfBase: 1,
+        salePrice: partial.salePrice,
+      },
+    ],
+  };
+}
+
 const seedProducts: Product[] = [
-  {
+  pieceProduct({
     id: "p1",
     name: "Samsung Galaxy S24 Ultra",
     sku: "S24U-256-BLK",
@@ -97,8 +157,8 @@ const seedProducts: Product[] = [
     supplierId: "s1",
     createdAt: new Date("2026-01-10"),
     updatedAt: new Date("2026-01-10"),
-  },
-  {
+  }),
+  pieceProduct({
     id: "p2",
     name: "iPhone 15 Pro",
     sku: "IP15P-128-TI",
@@ -111,8 +171,8 @@ const seedProducts: Product[] = [
     supplierId: "s1",
     createdAt: new Date("2026-01-10"),
     updatedAt: new Date("2026-01-10"),
-  },
-  {
+  }),
+  pieceProduct({
     id: "p3",
     name: "AirPods Pro 2",
     sku: "APP2-USB-C",
@@ -125,8 +185,8 @@ const seedProducts: Product[] = [
     supplierId: "s2",
     createdAt: new Date("2026-01-12"),
     updatedAt: new Date("2026-01-12"),
-  },
-  {
+  }),
+  pieceProduct({
     id: "p4",
     name: "Chargeur USB-C 45W",
     sku: "CHG-45W-UC",
@@ -139,8 +199,8 @@ const seedProducts: Product[] = [
     supplierId: "s2",
     createdAt: new Date("2026-01-12"),
     updatedAt: new Date("2026-01-12"),
-  },
-  {
+  }),
+  pieceProduct({
     id: "p5",
     name: "Coque transparente S24U",
     sku: "CASE-S24U-CLR",
@@ -153,8 +213,8 @@ const seedProducts: Product[] = [
     supplierId: "s2",
     createdAt: new Date("2026-01-15"),
     updatedAt: new Date("2026-01-15"),
-  },
-  {
+  }),
+  pieceProduct({
     id: "p6",
     name: "Powerbank 20000mAh",
     sku: "PB-20K-BLK",
@@ -167,8 +227,8 @@ const seedProducts: Product[] = [
     supplierId: "s2",
     createdAt: new Date("2026-01-15"),
     updatedAt: new Date("2026-01-15"),
-  },
-  {
+  }),
+  pieceProduct({
     id: "p7",
     name: "Cable USB-C 2m",
     sku: "CBL-UC-2M",
@@ -180,6 +240,84 @@ const seedProducts: Product[] = [
     categoryId: "c2",
     createdAt: new Date("2026-01-20"),
     updatedAt: new Date("2026-01-20"),
+  }),
+  {
+    id: "p8",
+    name: "Aspen Menthol",
+    sku: "ASPEN-MENTHOL",
+    barcode: generateBarcode("ASPEN"),
+    quantity: 400,
+    minStock: 40,
+    purchasePrice: 400,
+    salePrice: 500,
+    baseUnitName: "paquet",
+    packLevels: [
+      { id: "pl_p8a", name: "paquet", unitsOfBase: 1, salePrice: 500 },
+      { id: "pl_p8b", name: "cartouche", unitsOfBase: 20, salePrice: 9_500 },
+      { id: "pl_p8c", name: "carton", unitsOfBase: 200, salePrice: 90_000 },
+    ],
+    isActive: true,
+    categoryId: "c4",
+    supplierId: "s4",
+    createdAt: new Date("2026-06-01"),
+    updatedAt: new Date("2026-06-01"),
+  },
+  {
+    id: "p9",
+    name: "Beaufort Blonde",
+    sku: "BEAUFORT-33CL",
+    barcode: generateBarcode("BEAUFORT"),
+    quantity: 120,
+    minStock: 24,
+    purchasePrice: 500,
+    salePrice: 700,
+    baseUnitName: "bouteille",
+    packLevels: [
+      { id: "pl_p9a", name: "bouteille", unitsOfBase: 1, salePrice: 700 },
+      { id: "pl_p9b", name: "casier 12", unitsOfBase: 12, salePrice: 8_000 },
+      { id: "pl_p9c", name: "casier 24", unitsOfBase: 24, salePrice: 15_500 },
+    ],
+    isActive: true,
+    categoryId: "c5",
+    supplierId: "s4",
+    createdAt: new Date("2026-06-01"),
+    updatedAt: new Date("2026-06-01"),
+  },
+];
+
+const seedOffers: ProductSupplierOffer[] = [
+  {
+    id: "off1",
+    productId: "p8",
+    supplierId: "s4",
+    supplierName: "Boissons CI",
+    packPurchasePrice: 80_000,
+    purchasePackName: "carton",
+    unitsPerPurchasePack: 200,
+    costPerBaseUnit: 400,
+    lastPurchaseAt: new Date("2026-06-01"),
+  },
+  {
+    id: "off2",
+    productId: "p9",
+    supplierId: "s4",
+    supplierName: "Boissons CI",
+    packPurchasePrice: 6_000,
+    purchasePackName: "casier 12",
+    unitsPerPurchasePack: 12,
+    costPerBaseUnit: 500,
+    lastPurchaseAt: new Date("2026-06-01"),
+  },
+  {
+    id: "off3",
+    productId: "p9",
+    supplierId: "s2",
+    supplierName: "Access Plus",
+    packPurchasePrice: 6_600,
+    purchasePackName: "casier 12",
+    unitsPerPurchasePack: 12,
+    costPerBaseUnit: 550,
+    lastPurchaseAt: new Date("2026-06-10"),
   },
 ];
 
@@ -207,13 +345,15 @@ const seedMovements: StockMovement[] = [
   },
   {
     id: "m3",
-    productId: "p5",
-    productName: "Coque transparente S24U",
-    type: "ADJUSTMENT",
-    quantity: -2,
-    notes: "Inventaire",
+    productId: "p8",
+    productName: "Aspen Menthol",
+    type: "IN",
+    quantity: 400,
+    unitPrice: 400,
+    reference: "ACH-20260601-CIG",
+    notes: "2 cartons",
     createdById: "u1",
-    createdAt: new Date("2026-07-22"),
+    createdAt: new Date("2026-06-01"),
   },
 ];
 
@@ -236,6 +376,8 @@ const seedPurchases: Purchase[] = [
         productSku: "CHG-45W-UC",
         quantity: 10,
         unitPrice: 8_000,
+        purchasePackName: "piece",
+        unitsPerPurchasePack: 1,
       },
       {
         id: "pui2",
@@ -245,6 +387,8 @@ const seedPurchases: Purchase[] = [
         productSku: "CBL-UC-2M",
         quantity: 20,
         unitPrice: 1_500,
+        purchasePackName: "piece",
+        unitsPerPurchasePack: 1,
       },
     ],
     createdAt: new Date("2026-07-01"),
@@ -267,6 +411,8 @@ const seedPurchases: Purchase[] = [
         productSku: "S24U-256-BLK",
         quantity: 2,
         unitPrice: 650_000,
+        purchasePackName: "piece",
+        unitsPerPurchasePack: 1,
       },
     ],
     createdAt: new Date("2026-06-15"),
@@ -299,6 +445,8 @@ const seedInvoices: Invoice[] = [
         productSku: "PB-20K-BLK",
         quantity: 1,
         unitPrice: 22_000,
+        unitsOfBase: 1,
+        packName: "piece",
       },
     ],
     createdAt: new Date("2026-07-20T10:00:00"),
@@ -306,33 +454,34 @@ const seedInvoices: Invoice[] = [
   },
   {
     id: "inv2",
-    number: "FV-20260721-1430",
-    customerName: "Awa Koné",
+    number: "FV-20260728-1800",
+    customerName: "Client N~2",
     status: "PAID",
-    paymentMethod: "MOBILE_MONEY",
-    subtotal: 145_000,
-    discountAmount: 5_000,
+    paymentMethod: "CASH",
+    subtotal: 10_000,
+    discountAmount: 0,
     taxAmount: 0,
-    totalAmount: 140_000,
-    amountReceived: 140_000,
+    totalAmount: 10_000,
+    amountReceived: 10_000,
     changeDue: 0,
-    notes: "Client fidele",
-    issuedAt: new Date("2026-07-21T14:30:00"),
+    issuedAt: new Date(),
     issuedById: "u1",
     issuedByName: CURRENT_USER.name,
     items: [
       {
         id: "ii2",
         invoiceId: "inv2",
-        productId: "p3",
-        productName: "AirPods Pro 2",
-        productSku: "APP2-USB-C",
-        quantity: 1,
-        unitPrice: 145_000,
+        productId: "p8",
+        productName: "Aspen Menthol",
+        productSku: "ASPEN-MENTHOL",
+        quantity: 20,
+        unitPrice: 500,
+        unitsOfBase: 20,
+        packName: "paquet",
       },
     ],
-    createdAt: new Date("2026-07-21T14:30:00"),
-    updatedAt: new Date("2026-07-21T14:30:00"),
+    createdAt: new Date(),
+    updatedAt: new Date(),
   },
 ];
 
@@ -341,6 +490,7 @@ export type MockStore = {
   categories: Category[];
   suppliers: Supplier[];
   products: Product[];
+  supplierOffers: ProductSupplierOffer[];
   movements: StockMovement[];
   purchases: Purchase[];
   invoices: Invoice[];
@@ -352,6 +502,7 @@ function createSeedStore(): MockStore {
     categories: structuredClone(seedCategories),
     suppliers: structuredClone(seedSuppliers),
     products: structuredClone(seedProducts),
+    supplierOffers: structuredClone(seedOffers),
     movements: structuredClone(seedMovements),
     purchases: structuredClone(seedPurchases),
     invoices: structuredClone(seedInvoices),
@@ -366,7 +517,10 @@ export function getStore(): MockStore {
   if (!globalStore.__bcfMockStore) {
     globalStore.__bcfMockStore = createSeedStore();
   }
-  return globalStore.__bcfMockStore;
+  // Migration douce si ancien store sans nouveaux champs
+  const store = globalStore.__bcfMockStore;
+  if (!store.supplierOffers) store.supplierOffers = [];
+  return store;
 }
 
 export function resetStore() {
@@ -374,5 +528,5 @@ export function resetStore() {
 }
 
 export function touch() {
-  return now();
+  return touchDate();
 }

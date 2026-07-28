@@ -1,9 +1,15 @@
 import { createId, getStore, touch } from "@/lib/mock/store";
-import type { Category, RepoResult } from "@/lib/types";
+import {
+  createPackLevelId,
+  ensureBasePackLevel,
+} from "@/lib/sales/pricing";
+import type { Category, PackLevelTemplate, RepoResult } from "@/lib/types";
 
 export type CategoryInput = {
   name: string;
   description?: string;
+  baseUnitName: string;
+  packLevels?: PackLevelTemplate[];
   isActive?: boolean;
 };
 
@@ -21,8 +27,23 @@ export function countProductsInCategory(categoryId: string) {
   return getStore().products.filter((p) => p.categoryId === categoryId).length;
 }
 
+function normalizePackLevels(
+  baseUnitName: string,
+  packLevels?: PackLevelTemplate[],
+): PackLevelTemplate[] {
+  const cleaned = (packLevels ?? [])
+    .filter((level) => level.name.trim() && level.unitsOfBase > 0)
+    .map((level) => ({
+      id: level.id || createPackLevelId(),
+      name: level.name.trim(),
+      unitsOfBase: Math.max(1, Math.trunc(level.unitsOfBase)),
+    }));
+  return ensureBasePackLevel(baseUnitName.trim() || "unite", cleaned);
+}
+
 export function createCategory(input: CategoryInput): RepoResult<Category> {
   const name = input.name.trim();
+  const baseUnitName = input.baseUnitName.trim() || "unite";
   if (!name) return { ok: false, error: "Le nom est obligatoire" };
 
   const store = getStore();
@@ -35,6 +56,8 @@ export function createCategory(input: CategoryInput): RepoResult<Category> {
     id: createId("c"),
     name,
     description: input.description?.trim() || undefined,
+    baseUnitName,
+    packLevels: normalizePackLevels(baseUnitName, input.packLevels),
     isActive: input.isActive ?? true,
     createdAt: now,
     updatedAt: now,
@@ -52,6 +75,7 @@ export function updateCategory(
   if (index < 0) return { ok: false, error: "Categorie introuvable" };
 
   const name = input.name.trim();
+  const baseUnitName = input.baseUnitName.trim() || "unite";
   if (!name) return { ok: false, error: "Le nom est obligatoire" };
 
   if (
@@ -67,6 +91,8 @@ export function updateCategory(
     ...current,
     name,
     description: input.description?.trim() || undefined,
+    baseUnitName,
+    packLevels: normalizePackLevels(baseUnitName, input.packLevels),
     isActive: input.isActive ?? current.isActive,
     updatedAt: touch(),
   };

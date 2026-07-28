@@ -5,6 +5,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { DataTable, type DataColumn } from "@/components/crud/data-table";
 import { FormDialog } from "@/components/crud/form-dialog";
 import { CrudToolbar } from "@/components/crud/toolbar";
+import { PackLevelsEditor } from "@/components/shared/pack-levels-editor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,19 +21,34 @@ import {
   removeCategory,
   updateCategory,
 } from "@/lib/repositories/categories";
-import type { Category } from "@/lib/types";
+import { createPackLevelId } from "@/lib/sales/pricing";
+import type { Category, PackLevelTemplate } from "@/lib/types";
 
 type CategoryFormState = {
   name: string;
   description: string;
+  baseUnitName: string;
+  packLevels: PackLevelTemplate[];
   isActive: boolean;
 };
 
-const emptyForm: CategoryFormState = {
+function defaultPackLevels(baseUnitName: string): PackLevelTemplate[] {
+  return [
+    {
+      id: createPackLevelId(),
+      name: baseUnitName || "unite",
+      unitsOfBase: 1,
+    },
+  ];
+}
+
+const emptyForm = (): CategoryFormState => ({
   name: "",
   description: "",
+  baseUnitName: "piece",
+  packLevels: defaultPackLevels("piece"),
   isActive: true,
-};
+});
 
 export function CategoriesWorkspace() {
   const { confirm, dialog } = useConfirmDialog();
@@ -46,24 +62,21 @@ export function CategoriesWorkspace() {
     return listCategories();
   }, [version]);
 
-  const filterFn = useCallback(
-    (item: Category, query: string) => {
-      const q = query.trim().toLowerCase();
-      if (!q) return true;
-      return (
-        item.name.toLowerCase().includes(q) ||
-        (item.description?.toLowerCase().includes(q) ?? false)
-      );
-    },
-    [],
-  );
+  const filterFn = useCallback((item: Category, query: string) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      item.name.toLowerCase().includes(q) ||
+      item.baseUnitName.toLowerCase().includes(q) ||
+      (item.description?.toLowerCase().includes(q) ?? false)
+    );
+  }, []);
 
   const list = useEntityList(items, filterFn);
-
   const activeCount = items.filter((item) => item.isActive).length;
 
   const openCreate = () => {
-    setForm(emptyForm);
+    setForm(emptyForm());
     setError(null);
     list.openCreate();
   };
@@ -72,6 +85,8 @@ export function CategoriesWorkspace() {
     setForm({
       name: item.name,
       description: item.description ?? "",
+      baseUnitName: item.baseUnitName,
+      packLevels: item.packLevels.map((level) => ({ ...level })),
       isActive: item.isActive,
     });
     setError(null);
@@ -82,6 +97,8 @@ export function CategoriesWorkspace() {
     const payload = {
       name: form.name,
       description: form.description,
+      baseUnitName: form.baseUnitName,
+      packLevels: form.packLevels,
       isActive: form.isActive,
     };
     const result = list.editing
@@ -133,6 +150,19 @@ export function CategoriesWorkspace() {
       ),
     },
     {
+      key: "packs",
+      header: "Conditionnement",
+      hideOnMobile: true,
+      cell: (row) => (
+        <span className="text-xs text-muted-foreground">
+          {row.baseUnitName}
+          {row.packLevels.length > 1
+            ? ` · ${row.packLevels.length} niveaux`
+            : ""}
+        </span>
+      ),
+    },
+    {
       key: "products",
       header: "Produits",
       cell: (row) => (
@@ -181,7 +211,7 @@ export function CategoriesWorkspace() {
     <div className="space-y-6">
       <PageHeader
         title="Categories"
-        description="Organisez votre catalogue par familles de produits."
+        description="Definissez l'unite de base et les niveaux de gros avant d'acheter un produit."
         actions={
           <Button variant="success" onClick={openCreate}>
             <Plus className="h-4 w-4" />
@@ -206,7 +236,7 @@ export function CategoriesWorkspace() {
         columns={columns}
         rowKey={(row) => row.id}
         emptyTitle="Aucune categorie"
-        emptyDescription="Creez votre premiere categorie pour classer les produits."
+        emptyDescription="Creez une categorie (ex. Cigarettes, Bieres) avant tout achat."
         onRowClick={openEdit}
       />
 
@@ -217,6 +247,8 @@ export function CategoriesWorkspace() {
           else list.setFormOpen(true);
         }}
         title={list.editing ? "Modifier la categorie" : "Nouvelle categorie"}
+        description="Indispensable avant l'achat : unite de base + conditionnements."
+        className="max-w-lg"
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={list.closeForm}>
@@ -236,7 +268,7 @@ export function CategoriesWorkspace() {
             onChange={(event) =>
               setForm((prev) => ({ ...prev, name: event.target.value }))
             }
-            placeholder="Ex. Smartphones"
+            placeholder="Ex. Cigarettes"
           />
         </div>
         <div className="space-y-1.5">
@@ -250,6 +282,33 @@ export function CategoriesWorkspace() {
             placeholder="Optionnel"
           />
         </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="cat-base">Unite de base</Label>
+          <Input
+            id="cat-base"
+            value={form.baseUnitName}
+            onChange={(event) => {
+              const baseUnitName = event.target.value;
+              setForm((prev) => ({
+                ...prev,
+                baseUnitName,
+                packLevels: prev.packLevels.map((level) =>
+                  level.unitsOfBase === 1
+                    ? { ...level, name: baseUnitName || "unite" }
+                    : level,
+                ),
+              }));
+            }}
+            placeholder="paquet, bouteille, piece…"
+          />
+        </div>
+        <PackLevelsEditor
+          baseUnitName={form.baseUnitName}
+          levels={form.packLevels}
+          onChange={(packLevels) =>
+            setForm((prev) => ({ ...prev, packLevels }))
+          }
+        />
         <label className="flex items-center gap-2 text-sm text-foreground">
           <input
             type="checkbox"

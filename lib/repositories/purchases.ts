@@ -1,5 +1,7 @@
 import { createId, getStore, touch } from "@/lib/mock/store";
+import { costPerBaseUnit } from "@/lib/sales/pricing";
 import { createMovement } from "@/lib/repositories/movements";
+import { upsertSupplierOffer } from "@/lib/repositories/offers";
 import { getProduct } from "@/lib/repositories/products";
 import { getSupplier } from "@/lib/repositories/suppliers";
 import type {
@@ -13,10 +15,12 @@ export type PurchaseItemInput = {
   productId: string;
   quantity: number;
   unitPrice: number;
+  purchasePackName?: string;
+  unitsPerPurchasePack?: number;
 };
 
 export type PurchaseInput = {
-  supplierId: string;
+  supplierId?: string;
   notes?: string;
   items: PurchaseItemInput[];
   purchasedAt?: Date;
@@ -42,19 +46,20 @@ export function getPurchase(id: string) {
   return getStore().purchases.find((item) => item.id === id) ?? null;
 }
 
-export function createPurchase(input: PurchaseInput): RepoResult<Purchase> {
-  const supplier = getSupplier(input.supplierId);
-  if (!supplier) return { ok: false, error: "Fournisseur introuvable" };
-  if (!input.items.length) return { ok: false, error: "Ajoutez au moins une ligne" };
-
-  const purchaseId = createId("pu");
+function buildItems(
+  purchaseId: string,
+  inputItems: PurchaseItemInput[],
+): RepoResult<PurchaseItem[]> {
   const items: PurchaseItem[] = [];
-
-  for (const line of input.items) {
+  for (const line of inputItems) {
     const product = getProduct(line.productId);
     if (!product) return { ok: false, error: "Produit introuvable" };
     if (line.quantity <= 0) return { ok: false, error: "Quantite invalide" };
 
+    const unitsPerPurchasePack = Math.max(
+      1,
+      Math.trunc(line.unitsPerPurchasePack ?? 1),
+    );
     items.push({
       id: createId("pui"),
       purchaseId,
@@ -63,22 +68,40 @@ export function createPurchase(input: PurchaseInput): RepoResult<Purchase> {
       productSku: product.sku,
       quantity: Math.trunc(line.quantity),
       unitPrice: Math.max(0, line.unitPrice),
+      purchasePackName:
+        line.purchasePackName?.trim() || product.baseUnitName || "lot",
+      unitsPerPurchasePack,
     });
   }
+  return { ok: true, data: items };
+}
+
+export function createPurchase(input: PurchaseInput): RepoResult<Purchase> {
+  if (!input.items.length) return { ok: false, error: "Ajoutez au moins une ligne" };
+
+  let supplierName: string | undefined;
+  if (input.supplierId) {
+    const supplier = getSupplier(input.supplierId);
+    if (!supplier) return { ok: false, error: "Fournisseur introuvable" };
+    supplierName = supplier.name;
+  }
+
+  const purchaseId = createId("pu");
+  const built = buildItems(purchaseId, input.items);
+  if (!built.ok) return built;
 
   const now = touch();
-  const totalAmount = items.reduce(
-    (sum, item) => sum + item.quantity * item.unitPrice,
-    0,
-  );
-
+  const items = built.data;
   const purchase: Purchase = {
     id: purchaseId,
     reference: buildReference(now),
-    supplierId: supplier.id,
-    supplierName: supplier.name,
+    supplierId: input.supplierId || undefined,
+    supplierName,
     status: "PENDING",
-    totalAmount,
+    totalAmount: items.reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice,
+      0,
+    ),
     notes: input.notes?.trim() || undefined,
     purchasedAt: input.purchasedAt ?? now,
     items,
@@ -103,32 +126,24 @@ export function updatePurchase(
     return { ok: false, error: "Seul un achat en attente peut etre modifie" };
   }
 
-  const supplier = getSupplier(input.supplierId);
-  if (!supplier) return { ok: false, error: "Fournisseur introuvable" };
-  if (!input.items.length) return { ok: false, error: "Ajoutez au moins une ligne" };
-
-  const items: PurchaseItem[] = [];
-  for (const line of input.items) {
-    const product = getProduct(line.productId);
-    if (!product) return { ok: false, error: "Produit introuvable" };
-    items.push({
-      id: createId("pui"),
-      purchaseId: current.id,
-      productId: product.id,
-      productName: product.name,
-      productSku: product.sku,
-      quantity: Math.trunc(line.quantity),
-      unitPrice: Math.max(0, line.unitPrice),
-    });
+  let supplierName: string | undefined;
+  if (input.supplierId) {
+    const supplier = getSupplier(input.supplierId);
+    if (!supplier) return { ok: false, error: "Fournisseur introuvable" };
+    supplierName = supplier.name;
   }
+
+  if (!input.items.length) return { ok: false, error: "Ajoutez au moins une ligne" };
+  const built = buildItems(current.id, input.items);
+  if (!built.ok) return built;
 
   const updated: Purchase = {
     ...current,
-    supplierId: supplier.id,
-    supplierName: supplier.name,
+    supplierId: input.supplierId || undefined,
+    supplierName,
     notes: input.notes?.trim() || undefined,
-    items,
-    totalAmount: items.reduce(
+    items: built.data,
+    totalAmount: built.data.reduce(
       (sum, item) => sum + item.quantity * item.unitPrice,
       0,
     ),
@@ -154,15 +169,34 @@ export function setPurchaseStatus(
       return { ok: false, error: "Cet achat ne peut pas etre recu" };
     }
     for (const item of current.items) {
+      const baseQty = item.quantity * item.unitsPerPurchasePack;
+      const cost = costPerBaseUnit(item.unitPrice, item.unitsPerPurchasePack);
       const movement = createMovement({
         productId: item.productId,
         type: "IN",
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
+        quantity: baseQty,
+        unitPrice: cost,
         reference: current.reference,
-        notes: "Reception achat",
+        notes: `Reception ${item.quantity} × ${item.purchasePackName}`,
       });
       if (!movement.ok) return movement;
+
+      const product = getProduct(item.productId);
+      if (product) {
+        product.purchasePrice = cost;
+        product.updatedAt = touch();
+      }
+
+      if (current.supplierId && current.supplierName) {
+        upsertSupplierOffer({
+          productId: item.productId,
+          supplierId: current.supplierId,
+          supplierName: current.supplierName,
+          packPurchasePrice: item.unitPrice,
+          purchasePackName: item.purchasePackName,
+          unitsPerPurchasePack: item.unitsPerPurchasePack,
+        });
+      }
     }
   }
 

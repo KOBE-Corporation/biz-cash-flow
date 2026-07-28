@@ -14,10 +14,26 @@ export type User = {
   updatedAt: Date;
 };
 
+/** Niveau de conditionnement exprime en unites de base (ex: carton = 200 paquets). */
+export type PackLevelTemplate = {
+  id: string;
+  name: string;
+  unitsOfBase: number;
+};
+
+/** Prix de vente pour un niveau de conditionnement d'un produit. */
+export type ProductPackPrice = PackLevelTemplate & {
+  salePrice: number;
+};
+
 export type Category = {
   id: string;
   name: string;
   description?: string;
+  /** Unite de vente de base (paquet, bouteille, piece…). */
+  baseUnitName: string;
+  /** Niveaux de gros derives de l'unite de base. */
+  packLevels: PackLevelTemplate[];
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -35,17 +51,42 @@ export type Supplier = {
   updatedAt: Date;
 };
 
+/** Historique / offre d'achat par fournisseur (comparaison de prix). */
+export type ProductSupplierOffer = {
+  id: string;
+  productId: string;
+  supplierId: string;
+  supplierName: string;
+  /** Prix d'achat du lot achete. */
+  packPurchasePrice: number;
+  /** Nom du lot achete (casier, carton…). */
+  purchasePackName: string;
+  /** Nombre d'unites de base dans ce lot. */
+  unitsPerPurchasePack: number;
+  /** Cout revient par unite de base. */
+  costPerBaseUnit: number;
+  lastPurchaseAt: Date;
+};
+
 export type Product = {
   id: string;
   name: string;
   sku: string;
+  /** Code-barres unique (scan caisse). */
+  barcode: string;
   description?: string;
+  /** Stock en unites de base. */
   quantity: number;
   minStock: number;
+  /** Dernier cout de revient connu par unite de base. */
   purchasePrice: number;
+  /** Prix de vente de l'unite de base (decide par le vendeur). */
   salePrice: number;
+  baseUnitName: string;
+  packLevels: ProductPackPrice[];
   isActive: boolean;
   categoryId: string;
+  /** Fournisseur preferentiel optionnel. */
   supplierId?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -70,15 +111,19 @@ export type PurchaseItem = {
   productId: string;
   productName: string;
   productSku: string;
+  /** Nombre de lots achetes. */
   quantity: number;
+  /** Prix unitaire du lot. */
   unitPrice: number;
+  purchasePackName: string;
+  unitsPerPurchasePack: number;
 };
 
 export type Purchase = {
   id: string;
   reference: string;
-  supplierId: string;
-  supplierName: string;
+  supplierId?: string;
+  supplierName?: string;
   status: PurchaseStatus;
   totalAmount: number;
   notes?: string;
@@ -96,6 +141,9 @@ export type InvoiceItem = {
   productSku: string;
   quantity: number;
   unitPrice: number;
+  /** Unites de base vendues (pour stock). */
+  unitsOfBase?: number;
+  packName?: string;
 };
 
 export type Invoice = {
@@ -135,6 +183,8 @@ export type CartLine = {
   unitPrice: number;
   quantity: number;
   maxQuantity: number;
+  packName?: string;
+  unitsOfBase?: number;
 };
 
 export type SaleDraft = {

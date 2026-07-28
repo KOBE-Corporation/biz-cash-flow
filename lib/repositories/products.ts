@@ -1,9 +1,15 @@
 import { createId, getStore, touch } from "@/lib/mock/store";
-import type { Product, RepoResult } from "@/lib/types";
+import {
+  generateBarcode,
+  templatesToProductPrices,
+} from "@/lib/sales/pricing";
+import type { Product, ProductPackPrice, RepoResult } from "@/lib/types";
+import { getCategory } from "@/lib/repositories/categories";
 
 export type ProductInput = {
   name: string;
   sku: string;
+  barcode?: string;
   description?: string;
   quantity?: number;
   minStock?: number;
@@ -11,6 +17,8 @@ export type ProductInput = {
   salePrice: number;
   categoryId: string;
   supplierId?: string;
+  baseUnitName?: string;
+  packLevels?: ProductPackPrice[];
   isActive?: boolean;
 };
 
@@ -24,6 +32,16 @@ export function getProduct(id: string) {
   return getStore().products.find((item) => item.id === id) ?? null;
 }
 
+export function findProductByBarcode(barcode: string) {
+  const code = barcode.trim();
+  if (!code) return null;
+  return (
+    getStore().products.find(
+      (p) => p.barcode === code || p.sku.toLowerCase() === code.toLowerCase(),
+    ) ?? null
+  );
+}
+
 export function createProduct(input: ProductInput): RepoResult<Product> {
   const name = input.name.trim();
   const sku = input.sku.trim().toUpperCase();
@@ -31,10 +49,10 @@ export function createProduct(input: ProductInput): RepoResult<Product> {
   if (!sku) return { ok: false, error: "Le SKU est obligatoire" };
   if (!input.categoryId) return { ok: false, error: "La categorie est obligatoire" };
 
+  const category = getCategory(input.categoryId);
+  if (!category) return { ok: false, error: "Categorie introuvable" };
+
   const store = getStore();
-  if (!store.categories.some((c) => c.id === input.categoryId)) {
-    return { ok: false, error: "Categorie introuvable" };
-  }
   if (
     input.supplierId &&
     !store.suppliers.some((s) => s.id === input.supplierId)
@@ -45,16 +63,36 @@ export function createProduct(input: ProductInput): RepoResult<Product> {
     return { ok: false, error: "Ce SKU existe deja" };
   }
 
+  const barcode = (input.barcode?.trim() || generateBarcode(sku)).replace(
+    /\s/g,
+    "",
+  );
+  if (store.products.some((p) => p.barcode === barcode)) {
+    return { ok: false, error: "Ce code-barres existe deja" };
+  }
+
+  const baseUnitName = input.baseUnitName?.trim() || category.baseUnitName;
+  const packLevels =
+    input.packLevels?.length
+      ? input.packLevels
+      : templatesToProductPrices(
+          category.packLevels,
+          input.purchasePrice,
+        );
+
   const now = touch();
   const product: Product = {
     id: createId("p"),
     name,
     sku,
+    barcode,
     description: input.description?.trim() || undefined,
     quantity: Math.max(0, input.quantity ?? 0),
     minStock: Math.max(0, input.minStock ?? 0),
     purchasePrice: Math.max(0, input.purchasePrice),
-    salePrice: Math.max(0, input.salePrice),
+    salePrice: Math.max(0, input.salePrice || packLevels[0]?.salePrice || 0),
+    baseUnitName,
+    packLevels,
     isActive: input.isActive ?? true,
     categoryId: input.categoryId,
     supplierId: input.supplierId || undefined,
@@ -79,6 +117,9 @@ export function updateProduct(
   if (!sku) return { ok: false, error: "Le SKU est obligatoire" };
   if (!input.categoryId) return { ok: false, error: "La categorie est obligatoire" };
 
+  const category = getCategory(input.categoryId);
+  if (!category) return { ok: false, error: "Categorie introuvable" };
+
   if (
     store.products.some(
       (p) => p.id !== id && p.sku.toLowerCase() === sku.toLowerCase(),
@@ -87,11 +128,30 @@ export function updateProduct(
     return { ok: false, error: "Ce SKU existe deja" };
   }
 
+  const barcode = (
+    input.barcode?.trim() ||
+    store.products[index].barcode ||
+    generateBarcode(sku)
+  ).replace(/\s/g, "");
+  if (store.products.some((p) => p.id !== id && p.barcode === barcode)) {
+    return { ok: false, error: "Ce code-barres existe deja" };
+  }
+
   const current = store.products[index];
+  const packLevels =
+    input.packLevels?.length
+      ? input.packLevels
+      : templatesToProductPrices(
+          category.packLevels,
+          input.purchasePrice,
+          current.packLevels,
+        );
+
   const updated: Product = {
     ...current,
     name,
     sku,
+    barcode,
     description: input.description?.trim() || undefined,
     quantity:
       input.quantity !== undefined
@@ -103,6 +163,8 @@ export function updateProduct(
         : current.minStock,
     purchasePrice: Math.max(0, input.purchasePrice),
     salePrice: Math.max(0, input.salePrice),
+    baseUnitName: input.baseUnitName?.trim() || category.baseUnitName,
+    packLevels,
     isActive: input.isActive ?? current.isActive,
     categoryId: input.categoryId,
     supplierId: input.supplierId || undefined,
@@ -130,6 +192,7 @@ export function removeProduct(id: string): RepoResult<true> {
   const before = store.products.length;
   store.products = store.products.filter((p) => p.id !== id);
   store.movements = store.movements.filter((m) => m.productId !== id);
+  store.supplierOffers = store.supplierOffers.filter((o) => o.productId !== id);
   if (store.products.length === before) {
     return { ok: false, error: "Produit introuvable" };
   }
