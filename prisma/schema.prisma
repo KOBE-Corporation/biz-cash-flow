@@ -39,20 +39,23 @@ enum PaymentMethod {
 }
 
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  name      String
-  invoices  Invoice[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id               String          @id @default(cuid())
+  email            String          @unique
+  name             String
+  invoices         Invoice[]
+  stockMovements   StockMovement[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 }
 
 model Category {
-  id        String    @id @default(cuid())
-  name      String    @unique
-  products  Product[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  isActive    Boolean   @default(true)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 model Supplier {
@@ -61,6 +64,8 @@ model Supplier {
   email     String?
   phone     String?
   address   String?
+  notes     String?
+  isActive  Boolean    @default(true)
   products  Product[]
   purchases Purchase[]
   createdAt DateTime   @default(now())
@@ -76,6 +81,7 @@ model Product {
   minStock       Int             @default(0)
   purchasePrice  Decimal         @default(0) @db.Decimal(12, 2)
   salePrice      Decimal         @default(0) @db.Decimal(12, 2)
+  isActive       Boolean         @default(true)
   categoryId     String
   category       Category        @relation(fields: [categoryId], references: [id])
   supplierId     String?
@@ -88,6 +94,8 @@ model Product {
 
   @@index([categoryId])
   @@index([supplierId])
+  @@index([sku])
+  @@index([isActive])
 }
 
 model StockMovement {
@@ -99,10 +107,13 @@ model StockMovement {
   unitPrice   Decimal?     @db.Decimal(12, 2)
   reference   String?
   notes       String?
+  createdById String?
+  createdBy   User?        @relation(fields: [createdById], references: [id])
   createdAt   DateTime     @default(now())
 
   @@index([productId])
   @@index([createdAt])
+  @@index([createdById])
 }
 
 model Purchase {
@@ -112,12 +123,14 @@ model Purchase {
   supplier     Supplier       @relation(fields: [supplierId], references: [id])
   status       PurchaseStatus @default(PENDING)
   totalAmount  Decimal        @default(0) @db.Decimal(12, 2)
+  notes        String?
   purchasedAt  DateTime       @default(now())
   items        PurchaseItem[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
   @@index([supplierId])
+  @@index([status])
 }
 
 model PurchaseItem {
