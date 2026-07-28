@@ -15,13 +15,19 @@ import { ToastViewport, useToast } from "@/components/ui/toast";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { useEntityList } from "@/hooks/use-entity-list";
 import { listCategories } from "@/lib/repositories/categories";
+import { listOffersForProduct } from "@/lib/repositories/offers";
 import {
   listProducts,
   removeProduct,
   updateProduct,
 } from "@/lib/repositories/products";
 import { listSuppliers } from "@/lib/repositories/suppliers";
-import type { Product } from "@/lib/types";
+import {
+  isSalePriceBelowCost,
+  suggestBaseSalePrice,
+  templatesToProductPrices,
+} from "@/lib/sales/pricing";
+import type { Product, ProductPackPrice } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
 type StockFilter = "all" | "ok" | "low" | "out";
@@ -29,12 +35,14 @@ type StockFilter = "all" | "ok" | "low" | "out";
 type ProductFormState = {
   name: string;
   sku: string;
+  barcode: string;
   description: string;
   minStock: string;
   purchasePrice: string;
   salePrice: string;
   categoryId: string;
   supplierId: string;
+  packLevels: ProductPackPrice[];
   isActive: boolean;
 };
 
@@ -77,7 +85,8 @@ export function ProductsWorkspace() {
       if (!q) return true;
       return (
         item.name.toLowerCase().includes(q) ||
-        item.sku.toLowerCase().includes(q)
+        item.sku.toLowerCase().includes(q) ||
+        item.barcode.includes(q)
       );
     },
     [categoryFilter, stockFilter],
@@ -85,19 +94,31 @@ export function ProductsWorkspace() {
 
   const list = useEntityList(items, filterFn);
 
+  const offers = useMemo(() => {
+    if (!list.editing) return [];
+    return listOffersForProduct(list.editing.id);
+  }, [list.editing, version]);
+
   const lowCount = items.filter((p) => stockTone(p) === "low").length;
   const outCount = items.filter((p) => stockTone(p) === "out").length;
 
   const openEdit = (item: Product) => {
+    const category = categories.find((c) => c.id === item.categoryId);
     setForm({
       name: item.name,
       sku: item.sku,
+      barcode: item.barcode,
       description: item.description ?? "",
       minStock: String(item.minStock),
       purchasePrice: String(item.purchasePrice),
       salePrice: String(item.salePrice),
       categoryId: item.categoryId,
       supplierId: item.supplierId ?? "",
+      packLevels: templatesToProductPrices(
+        category?.packLevels ?? item.packLevels,
+        item.purchasePrice,
+        item.packLevels,
+      ),
       isActive: item.isActive,
     });
     setError(null);
@@ -106,16 +127,23 @@ export function ProductsWorkspace() {
 
   const handleSave = () => {
     if (!list.editing || !form) return;
+    const salePrice = Number(form.salePrice) || 0;
+    const purchasePrice = Number(form.purchasePrice) || 0;
+    const packLevels = form.packLevels.map((level) =>
+      level.unitsOfBase === 1 ? { ...level, salePrice } : level,
+    );
     const result = updateProduct(list.editing.id, {
       name: form.name,
       sku: form.sku,
+      barcode: form.barcode,
       description: form.description,
       quantity: list.editing.quantity,
       minStock: Number(form.minStock) || 0,
-      purchasePrice: Number(form.purchasePrice) || 0,
-      salePrice: Number(form.salePrice) || 0,
+      purchasePrice,
+      salePrice,
       categoryId: form.categoryId,
       supplierId: form.supplierId || undefined,
+      packLevels,
       isActive: form.isActive,
     });
     if (!result.ok) {
@@ -152,7 +180,9 @@ export function ProductsWorkspace() {
       cell: (row) => (
         <div className="min-w-0">
           <p className="truncate font-medium">{row.name}</p>
-          <p className="truncate text-xs text-muted-foreground">{row.sku}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {row.sku} · {row.barcode}
+          </p>
         </div>
       ),
     },
@@ -178,7 +208,7 @@ export function ProductsWorkspace() {
             }
             className="tabular-nums"
           >
-            {row.quantity}
+            {row.quantity} {row.baseUnitName}
           </Badge>
         );
       },
@@ -187,7 +217,9 @@ export function ProductsWorkspace() {
       key: "price",
       header: "Prix vente",
       cell: (row) => (
-        <span className="text-xs tabular-nums">{formatCurrency(row.salePrice)}</span>
+        <span className="text-xs tabular-nums">
+          {formatCurrency(row.salePrice)}
+        </span>
       ),
     },
     {
@@ -205,8 +237,16 @@ export function ProductsWorkspace() {
       header: "",
       className: "w-[1%] text-right",
       cell: (row) => (
-        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(row)}>
+        <div
+          className="flex justify-end gap-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => openEdit(row)}
+          >
             <Pencil className="h-3.5 w-3.5" />
           </Button>
           <Button
@@ -222,11 +262,14 @@ export function ProductsWorkspace() {
     },
   ];
 
+  const cost = Number(form?.purchasePrice) || 0;
+  const sale = Number(form?.salePrice) || 0;
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Produits"
-        description="Catalogue et fiches. Le stock s'ajoute via un achat / reception."
+        description="Prix de vente decide par le vendeur. Stock en unites de base via Achats."
         actions={
           <Button
             variant="success"
@@ -247,7 +290,7 @@ export function ProductsWorkspace() {
       <CrudToolbar
         search={list.search}
         onSearchChange={list.setSearch}
-        searchPlaceholder="Nom ou SKU…"
+        searchPlaceholder="Nom, SKU ou code-barres…"
         filters={
           <>
             {(["all", "ok", "low", "out"] as StockFilter[]).map((value) => (
@@ -300,7 +343,7 @@ export function ProductsWorkspace() {
           }
         }}
         title="Modifier le produit"
-        description={`Stock actuel : ${list.editing?.quantity ?? 0} (modifie uniquement via Achats)`}
+        description={`Stock : ${list.editing?.quantity ?? 0} ${list.editing?.baseUnitName ?? ""} (via Achats)`}
         className="max-w-xl"
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -326,23 +369,50 @@ export function ProductsWorkspace() {
                 <Label>Nom</Label>
                 <Input
                   value={form.name}
-                  onChange={(e) => setForm((p) => p && { ...p, name: e.target.value })}
+                  onChange={(e) =>
+                    setForm((p) => p && { ...p, name: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-1.5">
                 <Label>SKU</Label>
                 <Input
                   value={form.sku}
-                  onChange={(e) => setForm((p) => p && { ...p, sku: e.target.value })}
+                  onChange={(e) =>
+                    setForm((p) => p && { ...p, sku: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Code-barres</Label>
+                <Input
+                  value={form.barcode}
+                  onChange={(e) =>
+                    setForm((p) => p && { ...p, barcode: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-1.5">
                 <Label>Categorie</Label>
                 <select
                   value={form.categoryId}
-                  onChange={(e) =>
-                    setForm((p) => p && { ...p, categoryId: e.target.value })
-                  }
+                  onChange={(e) => {
+                    const category = categories.find(
+                      (c) => c.id === e.target.value,
+                    );
+                    setForm(
+                      (p) =>
+                        p && {
+                          ...p,
+                          categoryId: e.target.value,
+                          packLevels: templatesToProductPrices(
+                            category?.packLevels ?? p.packLevels,
+                            Number(p.purchasePrice) || 0,
+                            p.packLevels,
+                          ),
+                        },
+                    );
+                  }}
                   className="flex h-11 w-full rounded-xl border border-border bg-input px-4 text-sm"
                 >
                   {categories.map((category) => (
@@ -353,7 +423,7 @@ export function ProductsWorkspace() {
                 </select>
               </div>
               <div className="space-y-1.5">
-                <Label>Fournisseur</Label>
+                <Label>Fournisseur preferentiel</Label>
                 <select
                   value={form.supplierId}
                   onChange={(e) =>
@@ -381,7 +451,7 @@ export function ProductsWorkspace() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Prix achat</Label>
+                <Label>Cout / unite</Label>
                 <Input
                   type="number"
                   min={0}
@@ -392,7 +462,7 @@ export function ProductsWorkspace() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Prix vente</Label>
+                <Label>Prix vente / unite</Label>
                 <Input
                   type="number"
                   min={0}
@@ -401,6 +471,45 @@ export function ProductsWorkspace() {
                     setForm((p) => p && { ...p, salePrice: e.target.value })
                   }
                 />
+                <p className="text-[11px] text-muted-foreground">
+                  Suggestion min : {formatCurrency(suggestBaseSalePrice(cost))}
+                  {isSalePriceBelowCost(sale, cost)
+                    ? " — sous le cout !"
+                    : ""}
+                </p>
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Prix par conditionnement</Label>
+                <div className="space-y-2">
+                  {form.packLevels.map((level, index) => (
+                    <div
+                      key={level.id}
+                      className="grid grid-cols-[1fr_120px] gap-2"
+                    >
+                      <div className="flex h-11 items-center rounded-xl border border-border bg-surface-2 px-3 text-sm">
+                        {level.name} ({level.unitsOfBase})
+                      </div>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={level.salePrice}
+                        disabled={level.unitsOfBase === 1}
+                        onChange={(e) => {
+                          const salePrice = Number(e.target.value) || 0;
+                          setForm(
+                            (p) =>
+                              p && {
+                                ...p,
+                                packLevels: p.packLevels.map((item, i) =>
+                                  i === index ? { ...item, salePrice } : item,
+                                ),
+                              },
+                          );
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>Description</Label>
@@ -412,6 +521,28 @@ export function ProductsWorkspace() {
                 />
               </div>
             </div>
+
+            {offers.length > 0 ? (
+              <div className="space-y-2 rounded-xl border border-border p-3">
+                <p className="text-sm font-medium">Offres fournisseurs</p>
+                <ul className="space-y-1.5 text-xs">
+                  {offers.map((offer) => (
+                    <li
+                      key={offer.id}
+                      className="flex justify-between gap-2 rounded-lg bg-surface-2 px-2 py-1.5"
+                    >
+                      <span>
+                        {offer.supplierName} · {offer.purchasePackName}
+                      </span>
+                      <span className="tabular-nums text-muted-foreground">
+                        {formatCurrency(offer.costPerBaseUnit)} / u.
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"

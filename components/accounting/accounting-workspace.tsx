@@ -51,24 +51,24 @@ export function AccountingWorkspace() {
         <StatCard
           title="Ventes du jour"
           value={formatCurrency(data.salesTotal)}
-          description={`${data.salesCount} facture(s)`}
+          subtitle={`${data.salesCount} facture(s)`}
           variant="success"
         />
         <StatCard
           title="Achats du jour"
           value={formatCurrency(data.purchasesTotal)}
-          description={`${data.purchasesCount} commande(s)`}
+          subtitle={`${data.purchasesCount} commande(s)`}
         />
         <StatCard
           title="Marge estimee"
           value={formatCurrency(data.estimatedMargin)}
-          description="Ventes − cout revient"
+          subtitle="Ventes − cout revient"
           variant={data.estimatedMargin >= 0 ? "success" : "danger"}
         />
         <StatCard
           title="Alertes stock"
           value={data.lowStockAlerts + data.outOfStockAlerts}
-          description={`${data.outOfStockAlerts} rupture · ${data.lowStockAlerts} faible`}
+          subtitle={`${data.outOfStockAlerts} rupture · ${data.lowStockAlerts} faible`}
           variant={
             data.outOfStockAlerts > 0
               ? "danger"
