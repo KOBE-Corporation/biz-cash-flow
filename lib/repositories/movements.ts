@@ -1,4 +1,5 @@
 import { createId, getStore, touch } from "@/lib/mock/store";
+import { getActor, recordAudit } from "@/lib/repositories/audit";
 import { adjustProductQuantity, getProduct } from "@/lib/repositories/products";
 import type { MovementType, RepoResult, StockMovement } from "@/lib/types";
 
@@ -42,6 +43,7 @@ export function createMovement(
 
   adjustProductQuantity(input.productId, stockDelta);
 
+  const actor = getActor();
   const movement: StockMovement = {
     id: createId("m"),
     productId: product.id,
@@ -51,10 +53,18 @@ export function createMovement(
     unitPrice: input.unitPrice,
     reference: input.reference?.trim() || undefined,
     notes: input.notes?.trim() || undefined,
-    createdById: getStore().users[0]?.id ?? "u1",
+    createdById: actor.id,
+    createdByName: actor.name,
     createdAt: touch(),
   };
 
   getStore().movements.unshift(movement);
+  recordAudit({
+    action: input.type === "ADJUSTMENT" ? "ADJUST" : "UPDATE",
+    entityType: "StockMovement",
+    entityId: movement.id,
+    summary: `Mouvement ${movement.type} : ${product.name} × ${movement.quantity}`,
+    metadata: { reference: movement.reference },
+  });
   return { ok: true, data: movement };
 }

@@ -1,5 +1,8 @@
 ### Docker — Biz Cash Flow
 
+Guide metier (pages, champs, parcours) : [`../docker/GUIDE-UTILISATION.md`](../docker/GUIDE-UTILISATION.md)  
+Roadmap : [`../docs/ROADMAP.md`](../docs/ROADMAP.md)
+
 Depuis le dossier `setup/` :
 
 ```bash

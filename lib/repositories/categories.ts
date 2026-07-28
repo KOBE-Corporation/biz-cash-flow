@@ -1,4 +1,5 @@
 import { createId, getStore, touch } from "@/lib/mock/store";
+import { getActor, recordAudit } from "@/lib/repositories/audit";
 import {
   createPackLevelId,
   ensureBasePackLevel,
@@ -51,6 +52,7 @@ export function createCategory(input: CategoryInput): RepoResult<Category> {
     return { ok: false, error: "Cette categorie existe deja" };
   }
 
+  const actor = getActor();
   const now = touch();
   const category: Category = {
     id: createId("c"),
@@ -59,10 +61,18 @@ export function createCategory(input: CategoryInput): RepoResult<Category> {
     baseUnitName,
     packLevels: normalizePackLevels(baseUnitName, input.packLevels),
     isActive: input.isActive ?? true,
+    createdById: actor.id,
+    createdByName: actor.name,
     createdAt: now,
     updatedAt: now,
   };
   store.categories.push(category);
+  recordAudit({
+    action: "CREATE",
+    entityType: "Category",
+    entityId: category.id,
+    summary: `Categorie creee : ${category.name}`,
+  });
   return { ok: true, data: category };
 }
 
@@ -86,6 +96,7 @@ export function updateCategory(
     return { ok: false, error: "Cette categorie existe deja" };
   }
 
+  const actor = getActor();
   const current = store.categories[index];
   const updated: Category = {
     ...current,
@@ -94,9 +105,17 @@ export function updateCategory(
     baseUnitName,
     packLevels: normalizePackLevels(baseUnitName, input.packLevels),
     isActive: input.isActive ?? current.isActive,
+    updatedById: actor.id,
+    updatedByName: actor.name,
     updatedAt: touch(),
   };
   store.categories[index] = updated;
+  recordAudit({
+    action: "UPDATE",
+    entityType: "Category",
+    entityId: updated.id,
+    summary: `Categorie mise a jour : ${updated.name}`,
+  });
   return { ok: true, data: updated };
 }
 
@@ -108,10 +127,17 @@ export function removeCategory(id: string): RepoResult<true> {
       error: "Impossible de supprimer : des produits sont lies",
     };
   }
+  const category = store.categories.find((c) => c.id === id);
   const before = store.categories.length;
   store.categories = store.categories.filter((c) => c.id !== id);
   if (store.categories.length === before) {
     return { ok: false, error: "Categorie introuvable" };
   }
+  recordAudit({
+    action: "DELETE",
+    entityType: "Category",
+    entityId: id,
+    summary: `Categorie supprimee : ${category?.name ?? id}`,
+  });
   return { ok: true, data: true };
 }

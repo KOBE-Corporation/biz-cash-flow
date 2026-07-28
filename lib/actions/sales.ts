@@ -90,8 +90,11 @@ export async function createSaleInvoice(
       },
       select: { id: true, sku: true },
     });
-    const productIdBySku = new Map(
-      productsBySku.map((product) => [product.sku, product.id]),
+    const productIdBySku = new Map<string, string>(
+      productsBySku.map((product: { id: string; sku: string }) => [
+        product.sku,
+        product.id,
+      ]),
     );
 
     const invoice = await prisma.invoice.create({

@@ -1,4 +1,5 @@
 import { createId, getStore, touch } from "@/lib/mock/store";
+import { getActor, recordAudit } from "@/lib/repositories/audit";
 import { costPerBaseUnit } from "@/lib/sales/pricing";
 import type { ProductSupplierOffer } from "@/lib/types";
 
@@ -17,6 +18,7 @@ export function upsertSupplierOffer(input: {
   unitsPerPurchasePack: number;
 }): ProductSupplierOffer {
   const store = getStore();
+  const actor = getActor();
   const cost = costPerBaseUnit(
     input.packPurchasePrice,
     input.unitsPerPurchasePack,
@@ -36,8 +38,16 @@ export function upsertSupplierOffer(input: {
       costPerBaseUnit: cost,
       supplierName: input.supplierName,
       lastPurchaseAt: touch(),
+      updatedById: actor.id,
+      updatedByName: actor.name,
     };
     store.supplierOffers[existingIndex] = updated;
+    recordAudit({
+      action: "UPDATE",
+      entityType: "ProductSupplierOffer",
+      entityId: updated.id,
+      summary: `Offre maj : ${input.supplierName} / ${input.purchasePackName}`,
+    });
     return updated;
   }
 
@@ -51,7 +61,15 @@ export function upsertSupplierOffer(input: {
     unitsPerPurchasePack: input.unitsPerPurchasePack,
     costPerBaseUnit: cost,
     lastPurchaseAt: touch(),
+    createdById: actor.id,
+    createdByName: actor.name,
   };
   store.supplierOffers.push(offer);
+  recordAudit({
+    action: "CREATE",
+    entityType: "ProductSupplierOffer",
+    entityId: offer.id,
+    summary: `Offre creee : ${input.supplierName} / ${input.purchasePackName}`,
+  });
   return offer;
 }

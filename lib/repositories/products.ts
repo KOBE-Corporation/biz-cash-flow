@@ -1,10 +1,11 @@
 import { createId, getStore, touch } from "@/lib/mock/store";
+import { getActor, recordAudit } from "@/lib/repositories/audit";
+import { getCategory } from "@/lib/repositories/categories";
 import {
   generateBarcode,
   templatesToProductPrices,
 } from "@/lib/sales/pricing";
 import type { Product, ProductPackPrice, RepoResult } from "@/lib/types";
-import { getCategory } from "@/lib/repositories/categories";
 
 export type ProductInput = {
   name: string;
@@ -71,14 +72,12 @@ export function createProduct(input: ProductInput): RepoResult<Product> {
     return { ok: false, error: "Ce code-barres existe deja" };
   }
 
+  const actor = getActor();
   const baseUnitName = input.baseUnitName?.trim() || category.baseUnitName;
   const packLevels =
     input.packLevels?.length
       ? input.packLevels
-      : templatesToProductPrices(
-          category.packLevels,
-          input.purchasePrice,
-        );
+      : templatesToProductPrices(category.packLevels, input.purchasePrice);
 
   const now = touch();
   const product: Product = {
@@ -96,10 +95,18 @@ export function createProduct(input: ProductInput): RepoResult<Product> {
     isActive: input.isActive ?? true,
     categoryId: input.categoryId,
     supplierId: input.supplierId || undefined,
+    createdById: actor.id,
+    createdByName: actor.name,
     createdAt: now,
     updatedAt: now,
   };
   store.products.push(product);
+  recordAudit({
+    action: "CREATE",
+    entityType: "Product",
+    entityId: product.id,
+    summary: `Produit cree : ${product.name} (${product.sku})`,
+  });
   return { ok: true, data: product };
 }
 
@@ -137,6 +144,7 @@ export function updateProduct(
     return { ok: false, error: "Ce code-barres existe deja" };
   }
 
+  const actor = getActor();
   const current = store.products[index];
   const packLevels =
     input.packLevels?.length
@@ -168,9 +176,17 @@ export function updateProduct(
     isActive: input.isActive ?? current.isActive,
     categoryId: input.categoryId,
     supplierId: input.supplierId || undefined,
+    updatedById: actor.id,
+    updatedByName: actor.name,
     updatedAt: touch(),
   };
   store.products[index] = updated;
+  recordAudit({
+    action: "UPDATE",
+    entityType: "Product",
+    entityId: updated.id,
+    summary: `Produit mis a jour : ${updated.name}`,
+  });
   return { ok: true, data: updated };
 }
 
@@ -189,6 +205,7 @@ export function removeProduct(id: string): RepoResult<true> {
     };
   }
 
+  const product = store.products.find((p) => p.id === id);
   const before = store.products.length;
   store.products = store.products.filter((p) => p.id !== id);
   store.movements = store.movements.filter((m) => m.productId !== id);
@@ -196,6 +213,12 @@ export function removeProduct(id: string): RepoResult<true> {
   if (store.products.length === before) {
     return { ok: false, error: "Produit introuvable" };
   }
+  recordAudit({
+    action: "DELETE",
+    entityType: "Product",
+    entityId: id,
+    summary: `Produit supprime : ${product?.name ?? id}`,
+  });
   return { ok: true, data: true };
 }
 

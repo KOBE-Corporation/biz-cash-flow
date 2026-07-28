@@ -82,7 +82,7 @@ Achat frequent en casier ; revente a l’unite ou au casier.
 - [x] Suggestion prix vente vs cout
 - [x] Comptabilite du jour (mock)
 - [x] Documentation (`docs/`, README, guide)
-- [ ] Tracabilite User sur toutes les operations (schema + repos + UI)
+- [x] Tracabilite User sur toutes les operations (schema + repos + AuditLog)
 - [ ] Vente multi-packs dans `/sales` (choix paquet / cartouche / casier)
 - [ ] Decrement stock en unites de base selon le pack vendu
 
@@ -247,7 +247,7 @@ Une feature est « terminee » si :
 
 ## 9. Prochaines actions concretes (ordre suggere)
 
-1. Finaliser tracabilite User + page « Journal d’activite »
+1. Page UI « Journal d’activite » (lecture `AuditLog`)
 2. Vente multi-packs dans Sales
 3. Scan barcode panier
 4. Session de caisse + PDF compte du jour

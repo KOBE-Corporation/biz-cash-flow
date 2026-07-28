@@ -1,9 +1,10 @@
 import { createId, getStore, touch } from "@/lib/mock/store";
-import { costPerBaseUnit } from "@/lib/sales/pricing";
+import { getActor, recordAudit } from "@/lib/repositories/audit";
 import { createMovement } from "@/lib/repositories/movements";
 import { upsertSupplierOffer } from "@/lib/repositories/offers";
 import { getProduct } from "@/lib/repositories/products";
 import { getSupplier } from "@/lib/repositories/suppliers";
+import { costPerBaseUnit } from "@/lib/sales/pricing";
 import type {
   Purchase,
   PurchaseItem,
@@ -90,6 +91,7 @@ export function createPurchase(input: PurchaseInput): RepoResult<Purchase> {
   const built = buildItems(purchaseId, input.items);
   if (!built.ok) return built;
 
+  const actor = getActor();
   const now = touch();
   const items = built.data;
   const purchase: Purchase = {
@@ -105,11 +107,19 @@ export function createPurchase(input: PurchaseInput): RepoResult<Purchase> {
     notes: input.notes?.trim() || undefined,
     purchasedAt: input.purchasedAt ?? now,
     items,
+    createdById: actor.id,
+    createdByName: actor.name,
     createdAt: now,
     updatedAt: now,
   };
 
   getStore().purchases.unshift(purchase);
+  recordAudit({
+    action: "CREATE",
+    entityType: "Purchase",
+    entityId: purchase.id,
+    summary: `Achat cree : ${purchase.reference}`,
+  });
   return { ok: true, data: purchase };
 }
 
@@ -137,6 +147,7 @@ export function updatePurchase(
   const built = buildItems(current.id, input.items);
   if (!built.ok) return built;
 
+  const actor = getActor();
   const updated: Purchase = {
     ...current,
     supplierId: input.supplierId || undefined,
@@ -147,9 +158,17 @@ export function updatePurchase(
       (sum, item) => sum + item.quantity * item.unitPrice,
       0,
     ),
+    updatedById: actor.id,
+    updatedByName: actor.name,
     updatedAt: touch(),
   };
   store.purchases[index] = updated;
+  recordAudit({
+    action: "UPDATE",
+    entityType: "Purchase",
+    entityId: updated.id,
+    summary: `Achat mis a jour : ${updated.reference}`,
+  });
   return { ok: true, data: updated };
 }
 
@@ -163,6 +182,8 @@ export function setPurchaseStatus(
 
   const current = store.purchases[index];
   if (current.status === status) return { ok: true, data: current };
+
+  const actor = getActor();
 
   if (status === "RECEIVED") {
     if (current.status !== "PENDING") {
@@ -184,6 +205,8 @@ export function setPurchaseStatus(
       const product = getProduct(item.productId);
       if (product) {
         product.purchasePrice = cost;
+        product.updatedById = actor.id;
+        product.updatedByName = actor.name;
         product.updatedAt = touch();
       }
 
@@ -207,8 +230,27 @@ export function setPurchaseStatus(
   const updated: Purchase = {
     ...current,
     status,
+    updatedById: actor.id,
+    updatedByName: actor.name,
+    ...(status === "RECEIVED"
+      ? { receivedById: actor.id, receivedByName: actor.name }
+      : {}),
+    ...(status === "CANCELLED"
+      ? { cancelledById: actor.id, cancelledByName: actor.name }
+      : {}),
     updatedAt: touch(),
   };
   store.purchases[index] = updated;
+  recordAudit({
+    action:
+      status === "RECEIVED"
+        ? "RECEIVE"
+        : status === "CANCELLED"
+          ? "CANCEL"
+          : "UPDATE",
+    entityType: "Purchase",
+    entityId: updated.id,
+    summary: `Achat ${status.toLowerCase()} : ${updated.reference}`,
+  });
   return { ok: true, data: updated };
 }
