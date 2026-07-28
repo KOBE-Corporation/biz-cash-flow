@@ -520,6 +520,42 @@ export function getStore(): MockStore {
   // Migration douce si ancien store sans nouveaux champs
   const store = globalStore.__bcfMockStore;
   if (!store.supplierOffers) store.supplierOffers = [];
+  for (const product of store.products) {
+    if (!product.barcode) {
+      product.barcode = generateBarcode(product.sku);
+    }
+    if (!product.baseUnitName) {
+      product.baseUnitName = "piece";
+    }
+    if (!product.packLevels?.length) {
+      product.packLevels = [
+        {
+          id: createPackLevelId(),
+          name: product.baseUnitName,
+          unitsOfBase: 1,
+          salePrice: product.salePrice,
+        },
+      ];
+    }
+  }
+  for (const category of store.categories) {
+    if (!category.baseUnitName) category.baseUnitName = "piece";
+    if (!category.packLevels?.length) {
+      category.packLevels = [
+        {
+          id: createPackLevelId(),
+          name: category.baseUnitName,
+          unitsOfBase: 1,
+        },
+      ];
+    }
+  }
+  for (const purchase of store.purchases) {
+    for (const item of purchase.items) {
+      if (!item.purchasePackName) item.purchasePackName = "piece";
+      if (!item.unitsPerPurchasePack) item.unitsPerPurchasePack = 1;
+    }
+  }
   return store;
 }
 

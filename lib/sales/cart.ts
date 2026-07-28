@@ -76,15 +76,20 @@ export function addProductToCart(
 
   const existing = lines.find((line) => line.productId === product.id);
   if (!existing) {
+    const basePack =
+      product.packLevels?.find((level) => level.unitsOfBase === 1) ??
+      product.packLevels?.[0];
     return [
       ...lines,
       {
         productId: product.id,
         name: product.name,
         sku: product.sku,
-        unitPrice: product.salePrice,
+        unitPrice: basePack?.salePrice ?? product.salePrice,
         quantity: Math.min(quantity, product.quantity),
         maxQuantity: product.quantity,
+        packName: basePack?.name ?? product.baseUnitName,
+        unitsOfBase: basePack?.unitsOfBase ?? 1,
       },
     ];
   }

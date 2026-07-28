@@ -115,6 +115,8 @@ export async function createSaleInvoice(
             productSku: line.sku,
             quantity: line.quantity,
             unitPrice: line.unitPrice,
+            unitsOfBase: (line.unitsOfBase ?? 1) * line.quantity,
+            packName: line.packName ?? null,
           })),
         },
       },
