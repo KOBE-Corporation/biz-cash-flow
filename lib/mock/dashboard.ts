@@ -1,22 +1,26 @@
-import type { DashboardStats, StockMovement } from "@/lib/types";
+import { getStore } from "@/lib/mock/store";
+import type { DashboardStats } from "@/lib/types";
+import { listMovements } from "@/lib/repositories/movements";
 
-export const dashboardStats: DashboardStats = {
-  totalProducts: 4,
-  totalCategories: 2,
-  totalSuppliers: 2,
-  stockValue: 800_098_600_000,
-  lowStockCount: 0,
-  outOfStockCount: 1,
-};
+export function getDashboardStats(): DashboardStats {
+  const { products, categories, suppliers } = getStore();
+  const active = products.filter((p) => p.isActive);
+  return {
+    totalProducts: active.length,
+    totalCategories: categories.filter((c) => c.isActive).length,
+    totalSuppliers: suppliers.filter((s) => s.isActive).length,
+    stockValue: active.reduce(
+      (sum, p) => sum + p.quantity * p.purchasePrice,
+      0,
+    ),
+    lowStockCount: active.filter(
+      (p) => p.quantity > 0 && p.quantity <= p.minStock,
+    ).length,
+    outOfStockCount: active.filter((p) => p.quantity <= 0).length,
+  };
+}
 
-export const recentMovements: StockMovement[] = [
-  {
-    id: "1",
-    productId: "p1",
-    productName: "S24U",
-    type: "OUT",
-    quantity: 1,
-    reference: undefined,
-    createdAt: new Date("2025-08-30T14:19:00"),
-  },
-];
+/** @deprecated use getDashboardStats() */
+export const dashboardStats = getDashboardStats();
+
+export const recentMovements = listMovements().slice(0, 5);

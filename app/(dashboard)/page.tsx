@@ -3,9 +3,14 @@ import { DashboardStatsGrid } from "@/components/dashboard/dashboard-stats-grid"
 import { LowStockPanel } from "@/components/dashboard/low-stock-panel";
 import { RecentMovements } from "@/components/dashboard/recent-movements";
 import { PageHeader } from "@/components/ui/page-header";
-import { dashboardStats, recentMovements } from "@/lib/mock/dashboard";
+import {
+  getDashboardStats,
+  recentMovements,
+} from "@/lib/mock/dashboard";
 
 export default function DashboardPage() {
+  const dashboardStats = getDashboardStats();
+
   return (
     <div className="space-y-8">
       <PageHeader

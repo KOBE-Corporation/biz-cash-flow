@@ -1,4 +1,3 @@
-import { CURRENT_USER } from "@/lib/auth/current-user";
 import { createId, getStore, touch } from "@/lib/mock/store";
 import { adjustProductQuantity, getProduct } from "@/lib/repositories/products";
 import type { MovementType, RepoResult, StockMovement } from "@/lib/types";
@@ -57,6 +56,5 @@ export function createMovement(
   };
 
   getStore().movements.unshift(movement);
-  void CURRENT_USER;
   return { ok: true, data: movement };
 }

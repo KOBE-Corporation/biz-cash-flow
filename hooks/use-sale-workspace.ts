@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import type { Product } from "@/lib/types";
 import {
   findProductByCode,
-  mockProducts,
+  getCatalogProducts,
   searchProducts,
 } from "@/lib/mock/products";
 import {
@@ -33,7 +33,7 @@ export function useSaleWorkspace() {
   const validateRef = useRef<HTMLButtonElement>(null);
 
   const products = useMemo(() => {
-    const searched = searchProducts(state.query, mockProducts);
+    const searched = searchProducts(state.query, getCatalogProducts());
     return filterProductsByStock(searched, state.stockFilter, state.lines);
   }, [state.query, state.stockFilter, state.lines]);
 
@@ -82,11 +82,12 @@ export function useSaleWorkspace() {
   }, []);
 
   const handleScanSubmit = useCallback((code: string) => {
-    const exact = findProductByCode(code, mockProducts);
+    const catalog = getCatalogProducts();
+    const exact = findProductByCode(code, catalog);
     const match =
       exact ??
       (() => {
-        const results = searchProducts(code, mockProducts);
+        const results = searchProducts(code, catalog);
         return results.length === 1 ? results[0] : null;
       })();
 
