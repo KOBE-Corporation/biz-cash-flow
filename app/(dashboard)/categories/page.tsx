@@ -1,15 +1,5 @@
-import { ModulePlaceholder } from "@/components/shared/module-placeholder";
+import { CategoriesWorkspace } from "@/components/categories/categories-workspace";
 
 export default function CategoriesPage() {
-  return (
-    <ModulePlaceholder
-      title="Categories"
-      description="Organisez vos produits par categories."
-      features={[
-        "Creation de categories",
-        "Association produit / categorie",
-        "Statistiques par categorie",
-      ]}
-    />
-  );
+  return <CategoriesWorkspace />;
 }

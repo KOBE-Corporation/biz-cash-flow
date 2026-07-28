@@ -1,15 +1,5 @@
-import { ModulePlaceholder } from "@/components/shared/module-placeholder";
+import { SuppliersWorkspace } from "@/components/suppliers/suppliers-workspace";
 
 export default function FournisseursPage() {
-  return (
-    <ModulePlaceholder
-      title="Fournisseurs"
-      description="Gerez vos partenaires et leurs coordonnees."
-      features={[
-        "Fiche fournisseur complete",
-        "Historique des achats",
-        "Liaison produits / fournisseurs",
-      ]}
-    />
-  );
+  return <SuppliersWorkspace />;
 }

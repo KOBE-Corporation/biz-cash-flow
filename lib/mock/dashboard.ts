@@ -20,7 +20,10 @@ export function getDashboardStats(): DashboardStats {
   };
 }
 
-/** @deprecated use getDashboardStats() */
-export const dashboardStats = getDashboardStats();
+export function getRecentMovements(limit = 5) {
+  return listMovements().slice(0, limit);
+}
 
-export const recentMovements = listMovements().slice(0, 5);
+/** @deprecated use getDashboardStats() / getRecentMovements() */
+export const dashboardStats = getDashboardStats();
+export const recentMovements = getRecentMovements();

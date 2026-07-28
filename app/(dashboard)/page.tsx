@@ -5,11 +5,12 @@ import { RecentMovements } from "@/components/dashboard/recent-movements";
 import { PageHeader } from "@/components/ui/page-header";
 import {
   getDashboardStats,
-  recentMovements,
+  getRecentMovements,
 } from "@/lib/mock/dashboard";
 
 export default function DashboardPage() {
   const dashboardStats = getDashboardStats();
+  const recentMovements = getRecentMovements();
 
   return (
     <div className="space-y-8">
