@@ -27,7 +27,7 @@ export function CartPanel({
   const isEmpty = lines.length === 0;
 
   return (
-    <section className="flex h-full min-h-0 flex-col rounded-2xl border border-border bg-card shadow-card">
+    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card">
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div>
           <h2 className="text-base font-semibold text-foreground">Panier</h2>

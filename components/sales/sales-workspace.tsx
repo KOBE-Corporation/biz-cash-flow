@@ -243,7 +243,7 @@ export function SalesWorkspace() {
 
   return (
     <>
-      <div className="relative flex h-full min-h-0 flex-col gap-3 overflow-hidden lg:flex-row">
+      <div className="relative flex flex-col gap-4 lg:h-full lg:min-h-0 lg:flex-row lg:gap-3 lg:overflow-hidden">
         <ProductPicker
           ref={searchRef}
           query={query}
@@ -259,8 +259,8 @@ export function SalesWorkspace() {
           flashProductId={flashProductId}
         />
 
-        <div className="flex h-full min-h-0 w-full flex-col gap-3 lg:w-[380px] lg:shrink-0 xl:w-[420px]">
-          <div className="min-h-0 flex-[1.15]">
+        <div className="flex w-full flex-col gap-4 lg:h-full lg:min-h-0 lg:w-[380px] lg:shrink-0 lg:gap-3 xl:w-[420px]">
+          <div className="min-h-[240px] max-h-[42vh] lg:max-h-none lg:min-h-0 lg:flex-[1.15]">
             <CartPanel
               lines={lines}
               onQuantityChange={(productId, quantity) =>
@@ -274,7 +274,7 @@ export function SalesWorkspace() {
               onClear={() => setClearOpen(true)}
             />
           </div>
-          <div className="min-h-0 flex-1">
+          <div className="lg:min-h-0 lg:flex-1">
             <CheckoutPanel
               lines={lines}
               discount={discount}
@@ -293,7 +293,7 @@ export function SalesWorkspace() {
         </div>
 
         {toast ? (
-          <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 -translate-x-1/2 rounded-full border border-border bg-popover px-4 py-2 text-sm text-foreground shadow-card">
+          <div className="pointer-events-none fixed bottom-4 left-1/2 z-20 -translate-x-1/2 rounded-full border border-border bg-popover px-4 py-2 text-sm text-foreground shadow-card lg:absolute">
             {toast}
           </div>
         ) : null}

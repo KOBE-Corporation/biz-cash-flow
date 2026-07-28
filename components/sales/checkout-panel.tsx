@@ -60,7 +60,7 @@ export function CheckoutPanel({
   const isEmpty = lines.length === 0;
 
   return (
-    <section className="flex h-full min-h-0 flex-col rounded-2xl border border-border bg-card shadow-card">
+    <section className="flex flex-col rounded-2xl border border-border bg-card shadow-card lg:h-full lg:min-h-0 lg:overflow-hidden">
       <div className="shrink-0 border-b border-border px-4 py-3">
         <h2 className="text-base font-semibold text-foreground">Paiement</h2>
         <p className="text-xs text-muted-foreground">
@@ -68,7 +68,7 @@ export function CheckoutPanel({
         </p>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+      <div className="space-y-3 px-4 py-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">
             Mode de paiement · Ctrl+1..4
