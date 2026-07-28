@@ -34,3 +34,21 @@ export type DashboardStats = {
 export type InvoiceStatus = "DRAFT" | "SENT" | "PAID" | "CANCELLED";
 
 export type PurchaseStatus = "PENDING" | "RECEIVED" | "CANCELLED";
+
+export type PaymentMethod = "CASH" | "MOBILE_MONEY" | "CARD" | "CREDIT";
+
+export type CartLine = {
+  productId: string;
+  name: string;
+  sku: string;
+  unitPrice: number;
+  quantity: number;
+  maxQuantity: number;
+};
+
+export type SaleDraft = {
+  lines: CartLine[];
+  paymentMethod: PaymentMethod;
+  note?: string;
+  discount: number;
+};

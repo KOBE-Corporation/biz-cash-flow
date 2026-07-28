@@ -1,16 +1,9 @@
-import { AppNavbar } from "@/components/layout/app-navbar";
+import { AppShell } from "@/components/layout/app-shell";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className="min-h-screen bg-background">
-      <AppNavbar />
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        {children}
-      </main>
-    </div>
-  );
+  return <AppShell>{children}</AppShell>;
 }

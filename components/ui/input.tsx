@@ -1,12 +1,13 @@
+import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
-export function Input({
-  className,
-  type = "text",
-  ...props
-}: React.InputHTMLAttributes<HTMLInputElement>) {
+export const Input = forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement>
+>(function Input({ className, type = "text", ...props }, ref) {
   return (
     <input
+      ref={ref}
       type={type}
       className={cn(
         "flex h-11 w-full rounded-xl border border-border bg-input px-4 text-sm text-foreground placeholder:text-muted-foreground transition-colors shadow-card",
@@ -17,4 +18,4 @@ export function Input({
       {...props}
     />
   );
-}
+});
