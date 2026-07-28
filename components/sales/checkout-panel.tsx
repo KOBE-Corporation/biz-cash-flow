@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleEqual } from "lucide-react";
+import { CircleEqual, Wallet } from "lucide-react";
 import type { CartLine, PaymentMethod } from "@/lib/types";
 import type { DiscountMode } from "@/lib/sales/cart";
 import {
@@ -63,9 +63,12 @@ export function CheckoutPanel({
   return (
     <section className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card lg:h-full lg:min-h-0">
       <div className="shrink-0 border-b border-border px-3 py-2.5">
-        <h2 className="truncate text-sm font-semibold text-foreground sm:text-base">
-          Paiement
-        </h2>
+        <div className="flex min-w-0 items-center gap-2">
+          <Wallet className="h-4 w-4 shrink-0 text-primary" />
+          <h2 className="truncate text-sm font-semibold text-foreground sm:text-base">
+            Paiement
+          </h2>
+        </div>
         <p className="truncate text-xs text-muted-foreground">
           Mode, montant recu, remise
         </p>

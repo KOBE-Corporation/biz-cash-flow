@@ -1,5 +1,6 @@
 "use client";
 
+import { Banknote } from "lucide-react";
 import type { CartLine, PaymentMethod } from "@/lib/types";
 import type { DiscountMode } from "@/lib/sales/cart";
 import {
@@ -36,9 +37,12 @@ export function ReimbursementPanel({
   return (
     <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card lg:h-full">
       <div className="shrink-0 border-b border-border px-3 py-2.5">
-        <h2 className="truncate text-sm font-semibold text-foreground sm:text-base">
-          Caisse
-        </h2>
+        <div className="flex min-w-0 items-center gap-2">
+          <Banknote className="h-4 w-4 shrink-0 text-primary" />
+          <h2 className="truncate text-sm font-semibold text-foreground sm:text-base">
+            Caisse
+          </h2>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col justify-between gap-3 overflow-hidden px-3 py-3">

@@ -67,7 +67,10 @@ export const ProductPicker = forwardRef<HTMLInputElement, ProductPickerProps>(
       <div className="shrink-0 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <h2 className="text-base font-semibold text-foreground">Produits</h2>
+            <div className="flex min-w-0 items-center gap-2">
+              <Package className="h-4 w-4 shrink-0 text-primary" />
+              <h2 className="text-base font-semibold text-foreground">Produits</h2>
+            </div>
             <p className="text-xs text-muted-foreground">
               `/` recherche · ↑↓ naviguer · Enter ajouter · scanner SKU
             </p>
