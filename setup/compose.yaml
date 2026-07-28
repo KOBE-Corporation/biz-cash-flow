@@ -11,6 +11,7 @@ name: biz-cash-flow
 services:
   db:
     image: postgres:16-alpine
+    container_name: biz-cash-flow-db
     restart: unless-stopped
     env_file:
       - .env
