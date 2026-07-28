@@ -285,11 +285,12 @@ export function SalesWorkspace() {
               discountMode={discountMode}
               paymentMethod={paymentMethod}
               note={note}
+              amountReceived={amountReceived}
               onDiscountChange={setDiscount}
               onDiscountModeChange={setDiscountMode}
               onPaymentMethodChange={setPaymentMethod}
               onNoteChange={setNote}
-              onCheckout={openCheckout}
+              onAmountReceivedChange={setAmountReceived}
             />
           </div>
           <div className="min-h-0 min-w-0 overflow-hidden">
@@ -299,7 +300,7 @@ export function SalesWorkspace() {
               discountMode={discountMode}
               paymentMethod={paymentMethod}
               amountReceived={amountReceived}
-              onAmountReceivedChange={setAmountReceived}
+              onCheckout={openCheckout}
             />
           </div>
         </div>

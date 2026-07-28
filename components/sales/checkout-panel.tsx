@@ -1,5 +1,6 @@
 "use client";
 
+import { CircleEqual } from "lucide-react";
 import type { CartLine, PaymentMethod } from "@/lib/types";
 import type { DiscountMode } from "@/lib/sales/cart";
 import {
@@ -7,8 +8,6 @@ import {
   getCartTotal,
   resolveDiscountAmount,
 } from "@/lib/sales/cart";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,16 +20,25 @@ type CheckoutPanelProps = {
   discountMode: DiscountMode;
   paymentMethod: PaymentMethod;
   note: string;
+  amountReceived: number;
   onDiscountChange: (value: number) => void;
   onDiscountModeChange: (mode: DiscountMode) => void;
   onPaymentMethodChange: (method: PaymentMethod) => void;
   onNoteChange: (value: string) => void;
-  onCheckout: () => void;
+  onAmountReceivedChange: (value: number) => void;
 };
 
 const paymentMethods: { value: PaymentMethod; label: string }[] = [
   { value: "CASH", label: "Especes" },
   { value: "MOBILE_MONEY", label: "OM / MoMo" },
+];
+
+const quickCashAmounts = [
+  { value: 1_000, label: "+1k" },
+  { value: 5_000, label: "+5k" },
+  { value: 10_000, label: "+10k" },
+  { value: 20_000, label: "+20k" },
+  { value: 50_000, label: "+50k" },
 ];
 
 export function CheckoutPanel({
@@ -39,29 +47,31 @@ export function CheckoutPanel({
   discountMode,
   paymentMethod,
   note,
+  amountReceived,
   onDiscountChange,
   onDiscountModeChange,
   onPaymentMethodChange,
   onNoteChange,
-  onCheckout,
+  onAmountReceivedChange,
 }: CheckoutPanelProps) {
   const subtotal = getCartSubtotal(lines);
   const discountAmount = resolveDiscountAmount(subtotal, discount, discountMode);
   const total = getCartTotal(lines, discount, discountMode);
   const isEmpty = lines.length === 0;
+  const isCash = paymentMethod === "CASH";
 
   return (
-    <section className="flex min-w-0 flex-col rounded-2xl border border-border bg-card shadow-card lg:h-full lg:min-h-0 lg:overflow-hidden">
+    <section className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card lg:h-full lg:min-h-0">
       <div className="shrink-0 border-b border-border px-3 py-2.5">
         <h2 className="truncate text-sm font-semibold text-foreground sm:text-base">
           Paiement
         </h2>
         <p className="truncate text-xs text-muted-foreground">
-          Mode, remise · F4
+          Mode, montant recu, remise
         </p>
       </div>
 
-      <div className="min-w-0 space-y-2.5 overflow-x-hidden px-3 py-2.5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+      <div className="min-h-0 min-w-0 flex-1 space-y-2.5 overflow-x-hidden overflow-y-auto px-3 py-2.5">
         <div className="space-y-1.5">
           <Label className="text-[11px] text-muted-foreground">
             Mode · Ctrl+1..2
@@ -84,6 +94,59 @@ export function CheckoutPanel({
             ))}
           </div>
         </div>
+
+        {isCash ? (
+          <div className="space-y-1.5">
+            <Label
+              htmlFor="received-main"
+              className="text-[11px] text-muted-foreground"
+            >
+              Montant recu
+            </Label>
+            <Input
+              id="received-main"
+              type="number"
+              min={0}
+              value={amountReceived || ""}
+              placeholder={String(total || 0)}
+              className="h-9 min-w-0 text-sm font-semibold tabular-nums"
+              onChange={(event) =>
+                onAmountReceivedChange(
+                  Math.max(0, Number(event.target.value) || 0),
+                )
+              }
+            />
+            <div className="flex flex-wrap gap-1">
+              <Chip
+                className="px-2 py-1 text-[10px]"
+                disabled={isEmpty}
+                onClick={() => onAmountReceivedChange(total)}
+              >
+                <CircleEqual className="h-3 w-3" />
+                Exact
+              </Chip>
+              {quickCashAmounts.map((amount) => (
+                <Chip
+                  key={amount.value}
+                  className="px-2 py-1 text-[10px]"
+                  disabled={isEmpty}
+                  onClick={() =>
+                    onAmountReceivedChange(amountReceived + amount.value)
+                  }
+                >
+                  {amount.label}
+                </Chip>
+              ))}
+              <Chip
+                className="px-2 py-1 text-[10px]"
+                disabled={amountReceived <= 0}
+                onClick={() => onAmountReceivedChange(0)}
+              >
+                Reset
+              </Chip>
+            </div>
+          </div>
+        ) : null}
 
         <div className="space-y-1">
           <div className="flex items-center justify-between gap-2">
@@ -154,22 +217,6 @@ export function CheckoutPanel({
             <span className="truncate tabular-nums">{formatCurrency(total)}</span>
           </div>
         </div>
-      </div>
-
-      <div className="shrink-0 border-t border-border px-3 py-2.5">
-        <Button
-          className="h-9 w-full min-w-0 bg-success text-success-foreground hover:bg-success/90"
-          disabled={isEmpty}
-          onClick={onCheckout}
-        >
-          <span className="truncate">Valider</span>
-          <Badge
-            variant="outline"
-            className="ml-1 shrink-0 border-success-foreground/30 bg-transparent px-2 py-0.5 text-[10px] text-success-foreground"
-          >
-            F4
-          </Badge>
-        </Button>
       </div>
     </section>
   );

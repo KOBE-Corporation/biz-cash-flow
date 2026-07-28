@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ export function Dialog({
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const mounted = typeof document !== "undefined";
 
   useEffect(() => {
     if (!open) return;
@@ -47,13 +49,13 @@ export function Dialog({
     };
   }, [open, onOpenChange]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <button
         type="button"
-        className="absolute inset-0 bg-black/70"
+        className="absolute inset-0 bg-black/60 backdrop-blur-md"
         aria-label="Fermer la boite de dialogue"
         onClick={() => onOpenChange(false)}
       />
@@ -65,7 +67,7 @@ export function Dialog({
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         className={cn(
-          "relative z-[101] w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-card outline-none",
+          "relative z-[201] w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-card outline-none",
           className,
         )}
       >
@@ -97,7 +99,8 @@ export function Dialog({
         </div>
         {children ? <div className="mt-5">{children}</div> : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
