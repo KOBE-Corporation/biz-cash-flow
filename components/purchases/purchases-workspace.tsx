@@ -237,7 +237,7 @@ export function PurchasesWorkspace() {
         title="Achats"
         description="Commandes fournisseurs et reception de stock."
         actions={
-          <Button onClick={openCreate}>
+          <Button variant="success" onClick={openCreate}>
             <Plus className="h-4 w-4" />
             Nouvel achat
           </Button>
@@ -296,7 +296,9 @@ export function PurchasesWorkspace() {
             <Button variant="outline" onClick={() => setFormOpen(false)}>
               Annuler
             </Button>
-            <Button onClick={handleSave}>Enregistrer</Button>
+            <Button variant="success" onClick={handleSave}>
+              Enregistrer
+            </Button>
           </div>
         }
       >

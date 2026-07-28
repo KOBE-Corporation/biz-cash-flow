@@ -12,6 +12,7 @@ type DialogProps = {
   title: string;
   description?: string;
   children?: React.ReactNode;
+  footer?: React.ReactNode;
   className?: string;
   showClose?: boolean;
 };
@@ -22,6 +23,7 @@ export function Dialog({
   title,
   description,
   children,
+  footer,
   className,
   showClose = true,
 }: DialogProps) {
@@ -52,7 +54,7 @@ export function Dialog({
   if (!open || !mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[200] flex items-end justify-center p-0 sm:items-center sm:p-4">
       <button
         type="button"
         className="absolute inset-0 bg-black/60 backdrop-blur-md"
@@ -67,13 +69,16 @@ export function Dialog({
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         className={cn(
-          "relative z-[201] w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-card outline-none",
+          "relative z-[201] flex w-full max-w-md flex-col overflow-hidden border border-border bg-card shadow-card outline-none",
+          "max-h-[min(100dvh,100%)] rounded-t-2xl",
+          "sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl",
+          "pb-[env(safe-area-inset-bottom)]",
           className,
         )}
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
           <div className="min-w-0 space-y-1.5">
-            <h2 id={titleId} className="text-lg font-semibold text-foreground">
+            <h2 id={titleId} className="text-base font-semibold text-foreground sm:text-lg">
               {title}
             </h2>
             {description ? (
@@ -97,7 +102,18 @@ export function Dialog({
             </Button>
           ) : null}
         </div>
-        {children ? <div className="mt-5">{children}</div> : null}
+
+        {children ? (
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+            {children}
+          </div>
+        ) : null}
+
+        {footer ? (
+          <div className="shrink-0 border-t border-border bg-card px-4 py-4 sm:px-5">
+            {footer}
+          </div>
+        ) : null}
       </div>
     </div>,
     document.body,
@@ -139,27 +155,28 @@ export function ConfirmDialog({
       title={title}
       description={description}
       showClose={!loading}
-    >
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button
-          variant="outline"
-          disabled={loading}
-          onClick={() => onOpenChange(false)}
-        >
-          {cancelLabel}
-        </Button>
-        <Button
-          variant={variant === "destructive" ? "destructive" : "default"}
-          disabled={loading}
-          className={cn(
-            variant === "warning" &&
-              "bg-warning text-warning-foreground hover:bg-warning/90",
-          )}
-          onClick={handleConfirm}
-        >
-          {loading ? "Patientez..." : confirmLabel}
-        </Button>
-      </div>
-    </Dialog>
+      footer={
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button
+            variant="outline"
+            disabled={loading}
+            onClick={() => onOpenChange(false)}
+          >
+            {cancelLabel}
+          </Button>
+          <Button
+            variant={variant === "destructive" ? "destructive" : "default"}
+            disabled={loading}
+            className={cn(
+              variant === "warning" &&
+                "bg-warning text-warning-foreground hover:bg-warning/90",
+            )}
+            onClick={handleConfirm}
+          >
+            {loading ? "Patientez..." : confirmLabel}
+          </Button>
+        </div>
+      }
+    />
   );
 }

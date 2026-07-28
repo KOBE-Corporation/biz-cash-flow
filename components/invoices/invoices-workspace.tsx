@@ -231,7 +231,9 @@ export function InvoicesWorkspace() {
                   Marquer payee
                 </Button>
               ) : null}
-              <Button onClick={saveNotes}>Sauver notes</Button>
+              <Button variant="success" onClick={saveNotes}>
+                Sauver notes
+              </Button>
             </div>
           ) : null
         }

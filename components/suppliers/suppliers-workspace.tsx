@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader, StatCard } from "@/components/ui/page-header";
+import { ToastViewport, useToast } from "@/components/ui/toast";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { useEntityList } from "@/hooks/use-entity-list";
 import {
@@ -40,6 +41,7 @@ const emptyForm: SupplierFormState = {
 
 export function SuppliersWorkspace() {
   const { confirm, dialog } = useConfirmDialog();
+  const { toast, showToast } = useToast();
   const [version, setVersion] = useState(0);
   const [form, setForm] = useState<SupplierFormState>(emptyForm);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +100,10 @@ export function SuppliersWorkspace() {
     }
     list.closeForm();
     setVersion((value) => value + 1);
+    showToast(
+      list.editing ? "Fournisseur mis a jour" : "Fournisseur cree",
+      "success",
+    );
   };
 
   const handleDelete = async (item: Supplier) => {
@@ -110,15 +116,11 @@ export function SuppliersWorkspace() {
     if (!ok) return;
     const result = removeSupplier(item.id);
     if (!result.ok) {
-      await confirm({
-        title: "Suppression impossible",
-        description: result.error,
-        confirmLabel: "OK",
-        variant: "warning",
-      });
+      showToast(result.error, "error");
       return;
     }
     setVersion((value) => value + 1);
+    showToast(`« ${item.name} » supprime`, "success");
   };
 
   const columns: DataColumn<Supplier>[] = [
@@ -182,7 +184,7 @@ export function SuppliersWorkspace() {
         title="Fournisseurs"
         description="Gerez vos partenaires d'approvisionnement."
         actions={
-          <Button onClick={openCreate}>
+          <Button variant="success" onClick={openCreate}>
             <Plus className="h-4 w-4" />
             Nouveau fournisseur
           </Button>
@@ -222,7 +224,9 @@ export function SuppliersWorkspace() {
             <Button variant="outline" onClick={list.closeForm}>
               Annuler
             </Button>
-            <Button onClick={handleSave}>Enregistrer</Button>
+            <Button variant="success" onClick={handleSave}>
+              Enregistrer
+            </Button>
           </div>
         }
       >
@@ -282,6 +286,7 @@ export function SuppliersWorkspace() {
       </FormDialog>
 
       {dialog}
+      <ToastViewport toast={toast} />
     </div>
   );
 }

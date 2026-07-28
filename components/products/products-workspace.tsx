@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader, StatCard } from "@/components/ui/page-header";
+import { ToastViewport, useToast } from "@/components/ui/toast";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { useEntityList } from "@/hooks/use-entity-list";
 import { listCategories } from "@/lib/repositories/categories";
@@ -59,6 +60,7 @@ function stockTone(product: Product) {
 
 export function ProductsWorkspace() {
   const { confirm, dialog } = useConfirmDialog();
+  const { toast, showToast } = useToast();
   const [version, setVersion] = useState(0);
   const [stockFilter, setStockFilter] = useState<StockFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -144,6 +146,10 @@ export function ProductsWorkspace() {
     }
     list.closeForm();
     setVersion((v) => v + 1);
+    showToast(
+      list.editing ? "Produit mis a jour" : "Produit cree",
+      "success",
+    );
   };
 
   const handleDelete = async (item: Product) => {
@@ -156,15 +162,11 @@ export function ProductsWorkspace() {
     if (!ok) return;
     const result = removeProduct(item.id);
     if (!result.ok) {
-      await confirm({
-        title: "Suppression impossible",
-        description: result.error,
-        confirmLabel: "OK",
-        variant: "warning",
-      });
+      showToast(result.error, "error");
       return;
     }
     setVersion((v) => v + 1);
+    showToast(`« ${item.name} » supprime`, "success");
   };
 
   const columns: DataColumn<Product>[] = [
@@ -250,7 +252,7 @@ export function ProductsWorkspace() {
         title="Produits"
         description="Catalogue, prix et niveaux de stock."
         actions={
-          <Button onClick={openCreate}>
+          <Button variant="success" onClick={openCreate}>
             <Plus className="h-4 w-4" />
             Nouveau produit
           </Button>
@@ -319,7 +321,9 @@ export function ProductsWorkspace() {
             <Button variant="outline" onClick={list.closeForm}>
               Annuler
             </Button>
-            <Button onClick={handleSave}>Enregistrer</Button>
+            <Button variant="success" onClick={handleSave}>
+              Enregistrer
+            </Button>
           </div>
         }
       >
@@ -438,6 +442,7 @@ export function ProductsWorkspace() {
       </FormDialog>
 
       {dialog}
+      <ToastViewport toast={toast} />
     </div>
   );
 }

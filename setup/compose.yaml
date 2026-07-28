@@ -1,3 +1,13 @@
+# =============================================================================
+# Dev local  → uniquement la base PostgreSQL
+#   docker compose up -d
+#
+# Production → construire et lancer l'image app + la BD
+#   docker compose --profile prod up --build -d
+# =============================================================================
+
+name: biz-cash-flow
+
 services:
   db:
     image: postgres:16-alpine
@@ -13,15 +23,22 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-biz_cash_flow}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-biz_cash_flow}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
 
   app:
+    profiles: ["prod"]
     build:
       context: ..
       dockerfile: setup/Dockerfile
+      target: production
+    image: biz-cash-flow:prod
     restart: unless-stopped
     env_file:
       - .env
@@ -29,16 +46,12 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Biz Cash Flow}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-      NODE_ENV: ${NODE_ENV:-development}
+      NODE_ENV: production
     ports:
       - "${APP_PORT:-3000}:3000"
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      - ..:/usr/src/app
-      - /usr/src/app/node_modules
-      - /usr/src/app/.next
 
 volumes:
   postgres_data:

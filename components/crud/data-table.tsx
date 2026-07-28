@@ -76,14 +76,23 @@ export function DataTable<T>({
 
       <div className="grid gap-2 md:hidden">
         {rows.map((row) => (
-          <button
+          <div
             key={rowKey(row)}
-            type="button"
+            role={onRowClick ? "button" : undefined}
+            tabIndex={onRowClick ? 0 : undefined}
             className={cn(
               "rounded-2xl border border-border bg-card p-3 text-left shadow-card",
-              onRowClick && "active:bg-surface-active",
+              onRowClick &&
+                "cursor-pointer active:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
             )}
             onClick={() => onRowClick?.(row)}
+            onKeyDown={(event) => {
+              if (!onRowClick) return;
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onRowClick(row);
+              }
+            }}
           >
             <dl className="space-y-2">
               {columns
@@ -102,7 +111,7 @@ export function DataTable<T>({
                   </div>
                 ))}
             </dl>
-          </button>
+          </div>
         ))}
       </div>
     </div>

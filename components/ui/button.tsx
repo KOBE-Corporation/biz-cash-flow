@@ -17,6 +17,8 @@ const buttonVariants = cva(
           "text-muted-foreground hover:bg-surface-active hover:text-foreground",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        success:
+          "bg-success text-success-foreground hover:bg-success/90",
       },
       size: {
         default: "h-10 px-4 py-2",

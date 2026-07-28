@@ -27,9 +27,9 @@ export function FormDialog({
       title={title}
       description={description}
       className={cn("max-w-lg", className)}
+      footer={footer}
     >
       <div className="space-y-4">{children}</div>
-      {footer ? <div className="mt-5">{footer}</div> : null}
     </Dialog>
   );
 }

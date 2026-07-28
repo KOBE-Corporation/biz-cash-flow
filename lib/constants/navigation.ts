@@ -26,8 +26,8 @@ export const mainNavigation: NavItem[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Vente", href: "/sales", icon: CircleDollarSign },
   { label: "Produits", href: "/produits", icon: Boxes },
-  { label: "Mouvements de stock", href: "/mouvements", icon: ArrowLeftRight },
   { label: "Categories", href: "/categories", icon: List },
+  { label: "Mouvements de stock", href: "/mouvements", icon: ArrowLeftRight },
   { label: "Fournisseurs", href: "/fournisseurs", icon: Truck },
 ];
 

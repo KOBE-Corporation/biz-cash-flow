@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader, StatCard } from "@/components/ui/page-header";
+import { ToastViewport, useToast } from "@/components/ui/toast";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { useEntityList } from "@/hooks/use-entity-list";
 import {
@@ -35,6 +36,7 @@ const emptyForm: CategoryFormState = {
 
 export function CategoriesWorkspace() {
   const { confirm, dialog } = useConfirmDialog();
+  const { toast, showToast } = useToast();
   const [version, setVersion] = useState(0);
   const [form, setForm] = useState<CategoryFormState>(emptyForm);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +94,10 @@ export function CategoriesWorkspace() {
     }
     list.closeForm();
     setVersion((value) => value + 1);
+    showToast(
+      list.editing ? "Categorie mise a jour" : "Categorie creee",
+      "success",
+    );
   };
 
   const handleDelete = async (item: Category) => {
@@ -104,15 +110,11 @@ export function CategoriesWorkspace() {
     if (!ok) return;
     const result = removeCategory(item.id);
     if (!result.ok) {
-      await confirm({
-        title: "Suppression impossible",
-        description: result.error,
-        confirmLabel: "OK",
-        variant: "warning",
-      });
+      showToast(result.error, "error");
       return;
     }
     setVersion((value) => value + 1);
+    showToast(`« ${item.name} » supprimee`, "success");
   };
 
   const columns: DataColumn<Category>[] = [
@@ -181,7 +183,7 @@ export function CategoriesWorkspace() {
         title="Categories"
         description="Organisez votre catalogue par familles de produits."
         actions={
-          <Button onClick={openCreate}>
+          <Button variant="success" onClick={openCreate}>
             <Plus className="h-4 w-4" />
             Nouvelle categorie
           </Button>
@@ -220,7 +222,9 @@ export function CategoriesWorkspace() {
             <Button variant="outline" onClick={list.closeForm}>
               Annuler
             </Button>
-            <Button onClick={handleSave}>Enregistrer</Button>
+            <Button variant="success" onClick={handleSave}>
+              Enregistrer
+            </Button>
           </div>
         }
       >
@@ -261,6 +265,7 @@ export function CategoriesWorkspace() {
       </FormDialog>
 
       {dialog}
+      <ToastViewport toast={toast} />
     </div>
   );
 }

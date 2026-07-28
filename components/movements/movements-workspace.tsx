@@ -161,7 +161,7 @@ export function MovementsWorkspace() {
         title="Mouvements de stock"
         description="Historique des entrees, sorties et ajustements."
         actions={
-          <Button onClick={openCreate}>
+          <Button variant="success" onClick={openCreate}>
             <Plus className="h-4 w-4" />
             Nouvel ajustement
           </Button>
@@ -219,7 +219,9 @@ export function MovementsWorkspace() {
             <Button variant="outline" onClick={() => setFormOpen(false)}>
               Annuler
             </Button>
-            <Button onClick={handleSave}>Enregistrer</Button>
+            <Button variant="success" onClick={handleSave}>
+              Enregistrer
+            </Button>
           </div>
         }
       >
