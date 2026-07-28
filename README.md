@@ -80,7 +80,7 @@ Details : [`setup/README.Docker.md`](setup/README.Docker.md).
 | `lib/mock/store.ts` | Seed & store memoire |
 | `prisma/schema.prisma` | Modele de donnees |
 | `docs/ROADMAP.md` | Analyse, roadmap, wishlist |
-| `docker/GUIDE-UTILISATION.md` | Guide pages / champs / parcours |
+| `docs/GUIDE-UTILISATION.md` | Guide pages / champs / parcours |
 | `setup/` | Docker Compose, Dockerfile, env |
 
 ---
@@ -107,7 +107,7 @@ Details : [`setup/README.Docker.md`](setup/README.Docker.md).
 4. Vendre dans **Ventes**  
 5. Consulter **Comptabilite** (compte du jour)
 
-Guide detaille : [`docker/GUIDE-UTILISATION.md`](docker/GUIDE-UTILISATION.md).  
+Guide detaille : [`docs/GUIDE-UTILISATION.md`](docs/GUIDE-UTILISATION.md).  
 Roadmap complete : [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ---

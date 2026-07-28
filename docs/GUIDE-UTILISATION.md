@@ -1,7 +1,8 @@
 # Guide d’utilisation — Biz Cash Flow
 
 Ce guide explique **chaque page**, **chaque notion metier** et **les champs** des formulaires.
-Pour le demarrage Docker technique (compose, ports, profils), voir aussi [`../setup/README.Docker.md`](../setup/README.Docker.md).
+Pour le demarrage Docker technique (compose, ports, profils), voir aussi [`../setup/README.Docker.md`](../setup/README.Docker.md).  
+Roadmap produit : [`ROADMAP.md`](./ROADMAP.md).
 
 ---
 
@@ -162,7 +163,7 @@ Compte du jour :
 
 ## 4. Docker — a quoi sert chaque chose
 
-Les fichiers techniques sont dans `setup/`. Ce dossier `docker/` concentre le **guide metier + usage**.
+Les fichiers techniques Docker sont dans `setup/`. Ce guide (dans `docs/`) concentre le **metier + usage**.
 
 | Element | Role |
 |---------|------|
@@ -240,6 +241,6 @@ Cela permet plus tard : controle interne, litiges, filtres « actions de X ce jo
 
 ## 8. Liens
 
-- Roadmap & analyse : [`../docs/ROADMAP.md`](../docs/ROADMAP.md)
+- Roadmap & analyse : [`ROADMAP.md`](./ROADMAP.md)
 - README projet : [`../README.md`](../README.md)
 - Docker technique : [`../setup/README.Docker.md`](../setup/README.Docker.md)

@@ -85,6 +85,16 @@ Achat frequent en casier ; revente a l’unite ou au casier.
 - [x] Tracabilite User sur toutes les operations (schema + repos + AuditLog)
 - [ ] Vente multi-packs dans `/sales` (choix paquet / cartouche / casier)
 - [ ] Decrement stock en unites de base selon le pack vendu
+- [ ] Blocage vente si stock < unites du pack choisi (message clair)
+- [ ] Avertissement « sous le cout » en caisse (vendeur decide quand meme)
+- [ ] Affichage stock restant en unites de base + equivalent packs (ex. 240 = 1 carton + 2 cartouches)
+- [ ] Page UI « Journal d’activite » (lecture `AuditLog`, filtres date / user / entite)
+- [ ] Templates categories rapides a la creation (Cigarettes / Bieres / Piece)
+- [ ] Sync des `packLevels` produit quand la categorie change (avec confirmation)
+- [ ] Duplication rapide d’un produit (meme packs/prix, nouveau SKU + barcode)
+- [ ] Ligne panier : quantite en packs + conversion automatique en unites de base
+- [ ] Facture / ticket : afficher le niveau de pack vendu (pas seulement le nom produit)
+- [ ] Reception achat : resume « +X unites de base » avant confirmation
 
 ### Phase B — Court terme (caisse & stock)
 
@@ -96,6 +106,21 @@ Achat frequent en casier ; revente a l’unite ou au casier.
 - [ ] Compte de caisse du jour imprimable (PDF)
 - [ ] Alertes stock sur dashboard + badge nav
 - [ ] Historique prix de vente (qui a change quoi)
+- [ ] Panier suspendu / reprise (hold & recall multi-tickets)
+- [ ] Favoris / raccourcis produits en grille caisse
+- [ ] Paiement mixte (especes + mobile money sur un meme ticket)
+- [ ] Motif obligatoire sur ajustement de stock
+- [ ] Impression ticket navigateur (mise en page 80 mm)
+- [ ] Suggestion de reapprovisionnement (produits sous seuil + qte conseillee)
+- [ ] Comparateur prix fournisseurs integre a l’ecran Achats
+- [ ] Conversion stock lisible partout (unites ↔ packs)
+- [ ] Export CSV journal des ventes du jour
+- [ ] Clients rapides (nom libre + derniers tickets)
+- [ ] Verrouillage ecran caisse (PIN vendeur entre tickets)
+- [ ] Filtre mouvements par produit / type / utilisateur / periode
+- [ ] Reception partielle d’un achat (lignes / quantites)
+- [ ] Prix de vente « promo » temporaire avec date de fin
+- [ ] Indicateur marge % live sur chaque ligne du panier
 
 ### Phase C — Moyen terme (compta & multi-users)
 
@@ -107,6 +132,13 @@ Achat frequent en casier ; revente a l’unite ou au casier.
 - [ ] Export CSV / Excel / PDF
 - [ ] Multi-magasin / multi-caisse (optionnel)
 - [ ] Migration runtime mock → Prisma partout
+- [ ] Inventaire physique assiste (comptage → ecarts → ajustements traces)
+- [ ] Valorisation stock (dernier cout / PMP) + evolution
+- [ ] Objectifs CA / marge journaliers avec suivi
+- [ ] Cloture de journee (freeze ventes + rapport signe)
+- [ ] Droits par ecran (ex. vendeur ne modifie pas les prix d’achat)
+- [ ] Soft-delete avec motif + restauration Admin
+- [ ] Tableau de bord gerant (semaine / mois, top / flop)
 
 ### Phase D — Plus tard (peripheriques & scale)
 
@@ -118,6 +150,12 @@ Achat frequent en casier ; revente a l’unite ou au casier.
 - [ ] Notifications push (stock critique, ecart caisse)
 - [ ] API publique / webhooks
 - [ ] Application mobile companion
+- [ ] Afficheur client (2e ecran / pole display)
+- [ ] Generation & impression etiquettes code-barres (A4 / thermique)
+- [ ] Import / export catalogue CSV massif
+- [ ] Multi-devise (optionnel)
+- [ ] Fidélité clients (points / remises)
+- [ ] Mode formation (ventes fictives sans impact stock)
 
 ---
 
@@ -261,5 +299,5 @@ Une feature est « terminee » si :
 ## 10. Liens
 
 - [README racine](../README.md)
-- [Guide utilisateur (pages & champs)](../docker/GUIDE-UTILISATION.md)
+- [Guide utilisateur (pages & champs)](./GUIDE-UTILISATION.md)
 - [Docker technique](../setup/README.Docker.md)
