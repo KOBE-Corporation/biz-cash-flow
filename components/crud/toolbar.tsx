@@ -30,7 +30,7 @@ export function CrudToolbar({
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder={searchPlaceholder}
-          className="w-full sm:max-w-xs"
+          containerClassName="w-full sm:max-w-xs"
         />
         {filters ? (
           <div className="flex flex-wrap items-center gap-2">{filters}</div>
