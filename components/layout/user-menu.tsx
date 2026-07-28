@@ -13,7 +13,7 @@ type UserMenuProps = {
 
 export function UserMenu({ name, email }: UserMenuProps) {
   return (
-    <div className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-xl border border-border bg-popover py-2 shadow-lg">
+    <div className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-xl border border-border bg-popover py-2 shadow-card">
       <div className="px-4 py-3">
         <p className="text-sm font-semibold text-foreground">{name}</p>
         <p className="truncate text-xs text-muted-foreground">{email}</p>
