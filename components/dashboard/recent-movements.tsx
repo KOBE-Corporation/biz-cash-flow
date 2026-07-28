@@ -29,7 +29,7 @@ export function RecentMovements({ movements }: RecentMovementsProps) {
       </CardHeader>
       <CardContent className="space-y-3">
         {movements.length === 0 ? (
-          <p className="py-8 text-center text-sm text-slate-500">
+          <p className="py-8 text-center text-sm text-muted-foreground">
             Aucun mouvement recent.
           </p>
         ) : (
@@ -39,13 +39,15 @@ export function RecentMovements({ movements }: RecentMovementsProps) {
             return (
               <div
                 key={movement.id}
-                className="flex items-center justify-between gap-4 rounded-lg border border-slate-100 px-4 py-3"
+                className="flex items-center justify-between gap-4 rounded-xl bg-surface-2 px-4 py-3"
               >
                 <div className="flex items-center gap-3">
                   <div
                     className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-lg",
-                      isOut ? "bg-red-50 text-red-500" : "bg-emerald-50 text-emerald-500",
+                      "flex h-9 w-9 items-center justify-center rounded-xl",
+                      isOut
+                        ? "bg-destructive/15 text-destructive"
+                        : "bg-success/15 text-success",
                     )}
                   >
                     {isOut ? (
@@ -55,10 +57,10 @@ export function RecentMovements({ movements }: RecentMovementsProps) {
                     )}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">
+                    <p className="text-sm font-semibold text-foreground">
                       {movement.productName}
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       {format(movement.createdAt, "PPP p", { locale: fr })}
                     </p>
                   </div>
@@ -67,13 +69,13 @@ export function RecentMovements({ movements }: RecentMovementsProps) {
                   <p
                     className={cn(
                       "text-sm font-semibold",
-                      isOut ? "text-red-500" : "text-emerald-500",
+                      isOut ? "text-destructive" : "text-success",
                     )}
                   >
                     {isOut ? "-" : "+"}
                     {movement.quantity}
                   </p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-muted-foreground">
                     {movement.reference ?? "No reference"}
                   </p>
                 </div>

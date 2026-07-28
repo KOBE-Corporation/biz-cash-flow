@@ -38,21 +38,21 @@ export function DashboardStatsGrid({ stats }: DashboardStatsGridProps) {
         value={formatCurrency(stats.stockValue)}
         subtitle="Total valeur"
         variant="success"
-        icon={<Box className="h-5 w-5 text-emerald-500" />}
+        icon={<Box className="h-5 w-5 text-success" />}
       />
       <StatCard
         title="Stock Faible"
         value={stats.lowStockCount}
         subtitle="Besoin d'attention"
         variant="warning"
-        icon={<AlertTriangle className="h-5 w-5 text-amber-500" />}
+        icon={<AlertTriangle className="h-5 w-5 text-warning" />}
       />
       <StatCard
         title="Stock Epuise"
         value={stats.outOfStockCount}
         subtitle="Besoin de reapprovisionnement"
         variant="danger"
-        icon={<PackageX className="h-5 w-5 text-red-500" />}
+        icon={<PackageX className="h-5 w-5 text-destructive" />}
       />
     </div>
   );
