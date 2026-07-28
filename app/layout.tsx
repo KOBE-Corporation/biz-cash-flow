@@ -24,13 +24,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" className="dark" suppressHydrationWarning>
-      <body className={`${inter.variable} min-h-full bg-background font-sans text-foreground antialiased`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem={false}
-          storageKey="bcf-theme"
-        >
+      <body
+        className={`${inter.variable} min-h-full bg-background font-sans text-foreground antialiased`}
+      >
+        <ThemeProvider defaultTheme="dark" storageKey="bcf-theme">
           {children}
         </ThemeProvider>
       </body>

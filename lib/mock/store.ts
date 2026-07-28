@@ -1,5 +1,5 @@
 import { CURRENT_USER } from "@/lib/auth/current-user";
-import { createPackLevelId, generateBarcode } from "@/lib/sales/pricing";
+import { generateBarcode } from "@/lib/sales/pricing";
 import type {
   AuditLog,
   Category,
@@ -148,7 +148,7 @@ function pieceProduct(
     baseUnitName: base,
     packLevels: [
       {
-        id: createPackLevelId(),
+        id: `pl_${partial.id}`,
         name: base,
         unitsOfBase: 1,
         salePrice: partial.salePrice,
@@ -491,7 +491,7 @@ const seedInvoices: Invoice[] = [
     totalAmount: 10_000,
     amountReceived: 10_000,
     changeDue: 0,
-    issuedAt: new Date(),
+    issuedAt: new Date("2026-07-28T18:00:00"),
     issuedById: "u1",
     issuedByName: CURRENT_USER.name,
     items: [
@@ -507,8 +507,8 @@ const seedInvoices: Invoice[] = [
         packName: "paquet",
       },
     ],
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: new Date("2026-07-28T18:00:00"),
+    updatedAt: new Date("2026-07-28T18:00:00"),
   },
 ];
 
@@ -538,13 +538,21 @@ function createSeedStore(): MockStore {
   };
 }
 
+/** Invalide le store HMR obsolete (evite mismatch SSR/client). */
+const STORE_VERSION = 4;
+
 const globalStore = globalThis as unknown as {
   __bcfMockStore?: MockStore;
+  __bcfMockStoreVersion?: number;
 };
 
 export function getStore(): MockStore {
-  if (!globalStore.__bcfMockStore) {
+  if (
+    !globalStore.__bcfMockStore ||
+    globalStore.__bcfMockStoreVersion !== STORE_VERSION
+  ) {
     globalStore.__bcfMockStore = createSeedStore();
+    globalStore.__bcfMockStoreVersion = STORE_VERSION;
   }
   const store = globalStore.__bcfMockStore;
   if (!store.supplierOffers) store.supplierOffers = [];
@@ -569,7 +577,7 @@ export function getStore(): MockStore {
     if (!product.packLevels?.length) {
       product.packLevels = [
         {
-          id: createPackLevelId(),
+          id: `pl_${product.id}`,
           name: product.baseUnitName,
           unitsOfBase: 1,
           salePrice: product.salePrice,
@@ -583,7 +591,7 @@ export function getStore(): MockStore {
     if (!category.packLevels?.length) {
       category.packLevels = [
         {
-          id: createPackLevelId(),
+          id: `pl_cat_${category.id}`,
           name: category.baseUnitName,
           unitsOfBase: 1,
         },
@@ -608,6 +616,7 @@ export function getStore(): MockStore {
 
 export function resetStore() {
   globalStore.__bcfMockStore = createSeedStore();
+  globalStore.__bcfMockStoreVersion = STORE_VERSION;
 }
 
 export function touch() {

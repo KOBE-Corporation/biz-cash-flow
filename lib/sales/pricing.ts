@@ -63,13 +63,15 @@ export function ensureBasePackLevel(
   ];
 }
 
-/** Genere un code-barres numerique unique (EAN-like 13 digits). */
+/** Code-barres stable (meme seed → meme valeur serveur/client). */
 export function generateBarcode(seed?: string) {
-  const raw = `${Date.now()}${seed ?? Math.floor(Math.random() * 1e6)}`.replace(
-    /\D/g,
-    "",
-  );
-  const body = raw.slice(-12).padStart(12, "0");
+  const source = (seed ?? "000000000000").replace(/\W/g, "").toUpperCase();
+  let hash = 2166136261;
+  for (let i = 0; i < source.length; i++) {
+    hash ^= source.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const body = Math.abs(hash).toString().padStart(12, "0").slice(-12);
   let sum = 0;
   for (let i = 0; i < 12; i++) {
     const digit = Number(body[i]);
