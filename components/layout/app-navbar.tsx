@@ -18,7 +18,7 @@ export function AppNavbar() {
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-border bg-card/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
         <Link
           href="/"
@@ -36,7 +36,7 @@ export function AppNavbar() {
                 "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
                 isActive(item.href)
                   ? "bg-surface-active text-foreground"
-                  : "text-muted-foreground hover:bg-surface hover:text-foreground",
+                  : "text-muted-foreground hover:bg-surface-active hover:text-foreground",
               )}
             >
               <item.icon className="h-4 w-4" />
@@ -46,12 +46,12 @@ export function AppNavbar() {
           <div className="relative group">
             <button
               type="button"
-              className="inline-flex items-center gap-1 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-surface hover:text-foreground"
+              className="inline-flex items-center gap-1 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-surface-active hover:text-foreground"
             >
               Plus
               <ChevronDown className="h-4 w-4" />
             </button>
-            <div className="invisible absolute left-0 top-full z-50 mt-1 min-w-[180px] rounded-xl border border-border bg-popover py-1 opacity-0 shadow-lg transition-all group-hover:visible group-hover:opacity-100">
+            <div className="invisible absolute left-0 top-full z-50 mt-1 min-w-[180px] rounded-xl border border-border bg-popover py-1 shadow-card opacity-0 transition-all group-hover:visible group-hover:opacity-100">
               {secondaryNavigation.map((item) => (
                 <Link
                   key={item.href}
