@@ -279,16 +279,6 @@ export function SalesWorkspace() {
 
         <div className="grid min-h-0 min-w-0 grid-rows-[1fr_1fr] gap-2 lg:h-full">
           <div className="min-h-0 min-w-0 overflow-hidden">
-            <ReimbursementPanel
-              lines={lines}
-              discount={discount}
-              discountMode={discountMode}
-              paymentMethod={paymentMethod}
-              amountReceived={amountReceived}
-              onAmountReceivedChange={setAmountReceived}
-            />
-          </div>
-          <div className="min-h-0 min-w-0 overflow-hidden">
             <CheckoutPanel
               lines={lines}
               discount={discount}
@@ -300,6 +290,16 @@ export function SalesWorkspace() {
               onPaymentMethodChange={setPaymentMethod}
               onNoteChange={setNote}
               onCheckout={openCheckout}
+            />
+          </div>
+          <div className="min-h-0 min-w-0 overflow-hidden">
+            <ReimbursementPanel
+              lines={lines}
+              discount={discount}
+              discountMode={discountMode}
+              paymentMethod={paymentMethod}
+              amountReceived={amountReceived}
+              onAmountReceivedChange={setAmountReceived}
             />
           </div>
         </div>
