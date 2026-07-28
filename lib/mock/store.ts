@@ -1,6 +1,7 @@
 import { CURRENT_USER } from "@/lib/auth/current-user";
 import { createPackLevelId, generateBarcode } from "@/lib/sales/pricing";
 import type {
+  AuditLog,
   Category,
   Invoice,
   Product,
@@ -10,6 +11,11 @@ import type {
   Supplier,
   User,
 } from "@/lib/types";
+
+const ACTOR = {
+  createdById: "u1",
+  createdByName: CURRENT_USER.name,
+} as const;
 
 export function createId(prefix = "id") {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`;
@@ -35,6 +41,7 @@ const seedCategories: Category[] = [
       { id: "pl_s1", name: "piece", unitsOfBase: 1 },
     ],
     isActive: true,
+    ...ACTOR,
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
   },
@@ -45,6 +52,7 @@ const seedCategories: Category[] = [
     baseUnitName: "piece",
     packLevels: [{ id: "pl_a1", name: "piece", unitsOfBase: 1 }],
     isActive: true,
+    ...ACTOR,
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
   },
@@ -59,6 +67,7 @@ const seedCategories: Category[] = [
       { id: "pl_cig3", name: "carton", unitsOfBase: 200 },
     ],
     isActive: true,
+    ...ACTOR,
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
   },
@@ -74,6 +83,7 @@ const seedCategories: Category[] = [
       { id: "pl_b4", name: "casier 24", unitsOfBase: 24 },
     ],
     isActive: true,
+    ...ACTOR,
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
   },
@@ -88,6 +98,7 @@ const seedSuppliers: Supplier[] = [
     address: "Abidjan, Plateau",
     notes: "Delai 48h",
     isActive: true,
+    ...ACTOR,
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
   },
@@ -98,6 +109,7 @@ const seedSuppliers: Supplier[] = [
     phone: "+225 05 00 00 02",
     address: "Abidjan, Cocody",
     isActive: true,
+    ...ACTOR,
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
   },
@@ -107,6 +119,7 @@ const seedSuppliers: Supplier[] = [
     email: "hello@globalgadgets.com",
     phone: "+225 01 00 00 03",
     isActive: true,
+    ...ACTOR,
     createdAt: new Date("2026-03-01"),
     updatedAt: new Date("2026-03-01"),
   },
@@ -116,13 +129,14 @@ const seedSuppliers: Supplier[] = [
     email: "cmd@boissons.ci",
     phone: "+225 07 11 22 33",
     isActive: true,
+    ...ACTOR,
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
   },
 ];
 
 function pieceProduct(
-  partial: Omit<Product, "barcode" | "baseUnitName" | "packLevels"> & {
+  partial: Omit<Product, "barcode" | "baseUnitName" | "packLevels" | "createdById" | "createdByName"> & {
     barcode?: string;
     baseUnitName?: string;
   },
@@ -140,6 +154,7 @@ function pieceProduct(
         salePrice: partial.salePrice,
       },
     ],
+    ...ACTOR,
   };
 }
 
@@ -259,6 +274,7 @@ const seedProducts: Product[] = [
     isActive: true,
     categoryId: "c4",
     supplierId: "s4",
+    ...ACTOR,
     createdAt: new Date("2026-06-01"),
     updatedAt: new Date("2026-06-01"),
   },
@@ -280,6 +296,7 @@ const seedProducts: Product[] = [
     isActive: true,
     categoryId: "c5",
     supplierId: "s4",
+    ...ACTOR,
     createdAt: new Date("2026-06-01"),
     updatedAt: new Date("2026-06-01"),
   },
@@ -296,6 +313,7 @@ const seedOffers: ProductSupplierOffer[] = [
     unitsPerPurchasePack: 200,
     costPerBaseUnit: 400,
     lastPurchaseAt: new Date("2026-06-01"),
+    ...ACTOR,
   },
   {
     id: "off2",
@@ -307,6 +325,7 @@ const seedOffers: ProductSupplierOffer[] = [
     unitsPerPurchasePack: 12,
     costPerBaseUnit: 500,
     lastPurchaseAt: new Date("2026-06-01"),
+    ...ACTOR,
   },
   {
     id: "off3",
@@ -318,6 +337,7 @@ const seedOffers: ProductSupplierOffer[] = [
     unitsPerPurchasePack: 12,
     costPerBaseUnit: 550,
     lastPurchaseAt: new Date("2026-06-10"),
+    ...ACTOR,
   },
 ];
 
@@ -331,6 +351,7 @@ const seedMovements: StockMovement[] = [
     unitPrice: 650_000,
     reference: "ACH-SEED-001",
     createdById: "u1",
+    createdByName: CURRENT_USER.name,
     createdAt: new Date("2026-01-10"),
   },
   {
@@ -341,6 +362,7 @@ const seedMovements: StockMovement[] = [
     quantity: 6,
     reference: "FV-SEED-001",
     createdById: "u1",
+    createdByName: CURRENT_USER.name,
     createdAt: new Date("2026-07-20"),
   },
   {
@@ -353,6 +375,7 @@ const seedMovements: StockMovement[] = [
     reference: "ACH-20260601-CIG",
     notes: "2 cartons",
     createdById: "u1",
+    createdByName: CURRENT_USER.name,
     createdAt: new Date("2026-06-01"),
   },
 ];
@@ -391,6 +414,7 @@ const seedPurchases: Purchase[] = [
         unitsPerPurchasePack: 1,
       },
     ],
+    ...ACTOR,
     createdAt: new Date("2026-07-01"),
     updatedAt: new Date("2026-07-01"),
   },
@@ -415,6 +439,9 @@ const seedPurchases: Purchase[] = [
         unitsPerPurchasePack: 1,
       },
     ],
+    ...ACTOR,
+    receivedById: "u1",
+    receivedByName: CURRENT_USER.name,
     createdAt: new Date("2026-06-15"),
     updatedAt: new Date("2026-06-20"),
   },
@@ -494,6 +521,7 @@ export type MockStore = {
   movements: StockMovement[];
   purchases: Purchase[];
   invoices: Invoice[];
+  auditLogs: AuditLog[];
 };
 
 function createSeedStore(): MockStore {
@@ -506,6 +534,7 @@ function createSeedStore(): MockStore {
     movements: structuredClone(seedMovements),
     purchases: structuredClone(seedPurchases),
     invoices: structuredClone(seedInvoices),
+    auditLogs: [],
   };
 }
 
@@ -517,10 +546,20 @@ export function getStore(): MockStore {
   if (!globalStore.__bcfMockStore) {
     globalStore.__bcfMockStore = createSeedStore();
   }
-  // Migration douce si ancien store sans nouveaux champs
   const store = globalStore.__bcfMockStore;
   if (!store.supplierOffers) store.supplierOffers = [];
+  if (!store.auditLogs) store.auditLogs = [];
+
+  const ensureActor = <T extends { createdById?: string; createdByName?: string }>(
+    item: T,
+  ) => {
+    if (!item.createdById) item.createdById = ACTOR.createdById;
+    if (!item.createdByName) item.createdByName = ACTOR.createdByName;
+    return item;
+  };
+
   for (const product of store.products) {
+    ensureActor(product);
     if (!product.barcode) {
       product.barcode = generateBarcode(product.sku);
     }
@@ -539,6 +578,7 @@ export function getStore(): MockStore {
     }
   }
   for (const category of store.categories) {
+    ensureActor(category);
     if (!category.baseUnitName) category.baseUnitName = "piece";
     if (!category.packLevels?.length) {
       category.packLevels = [
@@ -550,7 +590,14 @@ export function getStore(): MockStore {
       ];
     }
   }
+  for (const supplier of store.suppliers) ensureActor(supplier);
+  for (const offer of store.supplierOffers) ensureActor(offer);
+  for (const movement of store.movements) {
+    ensureActor(movement);
+    if (!movement.createdByName) movement.createdByName = ACTOR.createdByName;
+  }
   for (const purchase of store.purchases) {
+    ensureActor(purchase);
     for (const item of purchase.items) {
       if (!item.purchasePackName) item.purchasePackName = "piece";
       if (!item.unitsPerPurchasePack) item.unitsPerPurchasePack = 1;
