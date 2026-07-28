@@ -19,6 +19,7 @@ type ReimbursementPanelProps = {
   discountMode: DiscountMode;
   paymentMethod: PaymentMethod;
   amountReceived: number;
+  canCheckout?: boolean;
   onCheckout: () => void;
 };
 
@@ -32,6 +33,7 @@ export const ReimbursementPanel = forwardRef<
     discountMode,
     paymentMethod,
     amountReceived,
+    canCheckout = true,
     onCheckout,
   },
   ref,
@@ -40,6 +42,7 @@ export const ReimbursementPanel = forwardRef<
   const isEmpty = lines.length === 0;
   const change =
     paymentMethod === "CASH" ? getChangeDue(total, amountReceived) : 0;
+  const disabled = isEmpty || !canCheckout;
 
   return (
     <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card">
@@ -50,6 +53,9 @@ export const ReimbursementPanel = forwardRef<
             Caisse
           </h2>
         </div>
+        <p className="truncate text-xs text-muted-foreground">
+          Enter apres montant · F4 pour valider
+        </p>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col justify-between gap-3 overflow-hidden px-3 py-3">
@@ -80,7 +86,7 @@ export const ReimbursementPanel = forwardRef<
         <Button
           ref={ref}
           className="h-10 w-full shrink-0 bg-success text-success-foreground hover:bg-success/90"
-          disabled={isEmpty}
+          disabled={disabled}
           onClick={onCheckout}
         >
           <span className="truncate">Valider</span>

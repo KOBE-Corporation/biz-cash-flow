@@ -22,11 +22,13 @@ type CheckoutPanelProps = {
   note: string;
   amountReceived: number;
   nextClientLabel: string;
+  receivedRef?: React.Ref<HTMLInputElement>;
   onDiscountChange: (value: number) => void;
   onDiscountModeChange: (mode: DiscountMode) => void;
   onPaymentMethodChange: (method: PaymentMethod) => void;
   onNoteChange: (value: string) => void;
   onAmountReceivedChange: (value: number) => void;
+  onExactAmount?: () => void;
   onAmountReceivedSubmit?: () => void;
 };
 
@@ -51,11 +53,13 @@ export function CheckoutPanel({
   note,
   amountReceived,
   nextClientLabel,
+  receivedRef,
   onDiscountChange,
   onDiscountModeChange,
   onPaymentMethodChange,
   onNoteChange,
   onAmountReceivedChange,
+  onExactAmount,
   onAmountReceivedSubmit,
 }: CheckoutPanelProps) {
   const subtotal = getCartSubtotal(lines);
@@ -88,6 +92,7 @@ export function CheckoutPanel({
               Montant recu
             </Label>
             <Input
+              ref={receivedRef}
               id="received-main"
               type="number"
               min={0}
@@ -109,7 +114,10 @@ export function CheckoutPanel({
               <Chip
                 className="px-2 py-1 text-[10px]"
                 disabled={isEmpty}
-                onClick={() => onAmountReceivedChange(total)}
+                onClick={() => {
+                  if (onExactAmount) onExactAmount();
+                  else onAmountReceivedChange(total);
+                }}
               >
                 <CircleEqual className="h-3 w-3" />
                 Exact
