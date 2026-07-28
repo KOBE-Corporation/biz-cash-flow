@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Check, Plus, Trash2, X } from "lucide-react";
 import { DataTable, type DataColumn } from "@/components/crud/data-table";
 import { FormDialog } from "@/components/crud/form-dialog";
@@ -10,15 +11,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader, StatCard } from "@/components/ui/page-header";
+import { ToastViewport, useToast } from "@/components/ui/toast";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { useEntityList } from "@/hooks/use-entity-list";
+import { listCategories } from "@/lib/repositories/categories";
 import {
   createPurchase,
   listPurchases,
   setPurchaseStatus,
   updatePurchase,
 } from "@/lib/repositories/purchases";
-import { listProducts } from "@/lib/repositories/products";
+import { createProduct, listProducts } from "@/lib/repositories/products";
 import { listSuppliers } from "@/lib/repositories/suppliers";
 import type { Purchase, PurchaseStatus } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
@@ -28,6 +31,16 @@ type LineDraft = {
   productId: string;
   quantity: string;
   unitPrice: string;
+};
+
+type NewProductForm = {
+  name: string;
+  sku: string;
+  categoryId: string;
+  purchasePrice: string;
+  salePrice: string;
+  minStock: string;
+  description: string;
 };
 
 const statusLabels: Record<PurchaseStatus, string> = {
@@ -46,18 +59,33 @@ function newLine(productId = "", unitPrice = "0"): LineDraft {
 }
 
 export function PurchasesWorkspace() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { confirm, dialog } = useConfirmDialog();
+  const { toast, showToast } = useToast();
   const [version, setVersion] = useState(0);
   const [statusFilter, setStatusFilter] = useState<PurchaseStatus | "all">("all");
   const [formOpen, setFormOpen] = useState(false);
+  const [productFormOpen, setProductFormOpen] = useState(false);
   const [detail, setDetail] = useState<Purchase | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [productError, setProductError] = useState<string | null>(null);
   const [supplierId, setSupplierId] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<LineDraft[]>([newLine()]);
+  const [newProduct, setNewProduct] = useState<NewProductForm>({
+    name: "",
+    sku: "",
+    categoryId: "",
+    purchasePrice: "0",
+    salePrice: "0",
+    minStock: "0",
+    description: "",
+  });
 
   const suppliers = useMemo(() => listSuppliers().filter((s) => s.isActive), [version]);
+  const categories = useMemo(() => listCategories().filter((c) => c.isActive), [version]);
   const products = useMemo(() => listProducts().filter((p) => p.isActive), [version]);
   const items = useMemo(() => {
     void version;
@@ -79,17 +107,41 @@ export function PurchasesWorkspace() {
 
   const list = useEntityList(items, filterFn);
 
-  const openCreate = () => {
-    const firstProduct = products[0];
-    setEditingId(null);
-    setSupplierId(suppliers[0]?.id ?? "");
-    setNotes("");
-    setLines([
-      newLine(firstProduct?.id, String(firstProduct?.purchasePrice ?? 0)),
-    ]);
-    setError(null);
-    setFormOpen(true);
-  };
+  const openCreate = useCallback(
+    (opts?: { openProductForm?: boolean }) => {
+      const firstProduct = products[0];
+      setEditingId(null);
+      setSupplierId(suppliers[0]?.id ?? "");
+      setNotes("");
+      setLines([
+        firstProduct
+          ? newLine(firstProduct.id, String(firstProduct.purchasePrice))
+          : newLine("", "0"),
+      ]);
+      setError(null);
+      setFormOpen(true);
+      if (opts?.openProductForm) {
+        setNewProduct({
+          name: "",
+          sku: "",
+          categoryId: categories[0]?.id ?? "",
+          purchasePrice: "0",
+          salePrice: "0",
+          minStock: "0",
+          description: "",
+        });
+        setProductError(null);
+        setProductFormOpen(true);
+      }
+    },
+    [categories, products, suppliers],
+  );
+
+  useEffect(() => {
+    if (searchParams.get("nouveau") !== "1") return;
+    openCreate({ openProductForm: true });
+    router.replace("/achats", { scroll: false });
+  }, [openCreate, router, searchParams]);
 
   const openEdit = (purchase: Purchase) => {
     if (purchase.status !== "PENDING") {
@@ -111,7 +163,70 @@ export function PurchasesWorkspace() {
     setFormOpen(true);
   };
 
+  const openNewProduct = () => {
+    setNewProduct({
+      name: "",
+      sku: "",
+      categoryId: categories[0]?.id ?? "",
+      purchasePrice: "0",
+      salePrice: "0",
+      minStock: "0",
+      description: "",
+    });
+    setProductError(null);
+    setProductFormOpen(true);
+  };
+
+  const handleCreateProduct = () => {
+    const result = createProduct({
+      name: newProduct.name,
+      sku: newProduct.sku,
+      description: newProduct.description,
+      quantity: 0,
+      minStock: Number(newProduct.minStock) || 0,
+      purchasePrice: Number(newProduct.purchasePrice) || 0,
+      salePrice: Number(newProduct.salePrice) || 0,
+      categoryId: newProduct.categoryId,
+      supplierId: supplierId || undefined,
+      isActive: true,
+    });
+
+    if (!result.ok) {
+      setProductError(result.error);
+      showToast(result.error, "error");
+      return;
+    }
+
+    const product = result.data;
+    setVersion((v) => v + 1);
+    setLines((prev) => {
+      const emptyIndex = prev.findIndex((line) => !line.productId);
+      if (emptyIndex >= 0) {
+        return prev.map((line, index) =>
+          index === emptyIndex
+            ? {
+                ...line,
+                productId: product.id,
+                unitPrice: String(product.purchasePrice),
+              }
+            : line,
+        );
+      }
+      return [
+        ...prev,
+        newLine(product.id, String(product.purchasePrice)),
+      ];
+    });
+    setProductFormOpen(false);
+    showToast(`Produit « ${product.name} » cree — ajoutez la qte a recevoir`, "success");
+  };
+
   const handleSave = () => {
+    if (lines.some((line) => !line.productId)) {
+      setError("Selectionnez ou creez un produit pour chaque ligne");
+      return;
+    }
+
     const payload = {
       supplierId,
       notes,
@@ -126,10 +241,15 @@ export function PurchasesWorkspace() {
       : createPurchase(payload);
     if (!result.ok) {
       setError(result.error);
+      showToast(result.error, "error");
       return;
     }
     setFormOpen(false);
     setVersion((v) => v + 1);
+    showToast(
+      editingId ? "Achat mis a jour" : "Achat enregistre",
+      "success",
+    );
   };
 
   const receive = async (purchase: Purchase) => {
@@ -142,16 +262,12 @@ export function PurchasesWorkspace() {
     if (!ok) return;
     const result = setPurchaseStatus(purchase.id, "RECEIVED");
     if (!result.ok) {
-      await confirm({
-        title: "Echec",
-        description: result.error,
-        confirmLabel: "OK",
-        variant: "warning",
-      });
+      showToast(result.error, "error");
       return;
     }
     setDetail(null);
     setVersion((v) => v + 1);
+    showToast("Achat recu — stock mis a jour", "success");
   };
 
   const cancel = async (purchase: Purchase) => {
@@ -163,16 +279,12 @@ export function PurchasesWorkspace() {
     if (!ok) return;
     const result = setPurchaseStatus(purchase.id, "CANCELLED");
     if (!result.ok) {
-      await confirm({
-        title: "Echec",
-        description: result.error,
-        confirmLabel: "OK",
-        variant: "warning",
-      });
+      showToast(result.error, "error");
       return;
     }
     setDetail(null);
     setVersion((v) => v + 1);
+    showToast("Achat annule", "success");
   };
 
   const columns: DataColumn<Purchase>[] = [
@@ -235,9 +347,9 @@ export function PurchasesWorkspace() {
     <div className="space-y-6">
       <PageHeader
         title="Achats"
-        description="Commandes fournisseurs et reception de stock."
+        description="Commandes fournisseurs, nouveaux produits et reception de stock."
         actions={
-          <Button variant="success" onClick={openCreate}>
+          <Button variant="success" onClick={() => openCreate()}>
             <Plus className="h-4 w-4" />
             Nouvel achat
           </Button>
@@ -290,6 +402,7 @@ export function PurchasesWorkspace() {
         open={formOpen}
         onOpenChange={setFormOpen}
         title={editingId ? "Modifier l'achat" : "Nouvel achat"}
+        description="Creez un produit ici si besoin, puis recevez l'achat pour alimenter le stock."
         className="max-w-2xl"
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -318,25 +431,36 @@ export function PurchasesWorkspace() {
         </div>
 
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <Label>Lignes</Label>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                setLines((prev) => [
-                  ...prev,
-                  newLine(products[0]?.id, String(products[0]?.purchasePrice ?? 0)),
-                ])
-              }
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Ligne
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="success" onClick={openNewProduct}>
+                <Plus className="h-3.5 w-3.5" />
+                Nouveau produit
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  setLines((prev) => [
+                    ...prev,
+                    products[0]
+                      ? newLine(products[0].id, String(products[0].purchasePrice))
+                      : newLine("", "0"),
+                  ])
+                }
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Ligne
+              </Button>
+            </div>
           </div>
           {lines.map((line, index) => (
-            <div key={line.key} className="grid gap-2 rounded-xl bg-surface-2 p-2 sm:grid-cols-[1fr_80px_110px_36px]">
+            <div
+              key={line.key}
+              className="grid gap-2 rounded-xl bg-surface-2 p-2 sm:grid-cols-[1fr_80px_110px_36px]"
+            >
               <select
                 value={line.productId}
                 onChange={(e) => {
@@ -355,6 +479,7 @@ export function PurchasesWorkspace() {
                 }}
                 className="h-10 rounded-lg border border-border bg-input px-2 text-xs"
               >
+                <option value="">Choisir un produit…</option>
                 {products.map((product) => (
                   <option key={product.id} value={product.id}>
                     {product.name}
@@ -408,6 +533,106 @@ export function PurchasesWorkspace() {
           <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      </FormDialog>
+
+      <FormDialog
+        open={productFormOpen}
+        onOpenChange={setProductFormOpen}
+        title="Nouveau produit"
+        description="Fiche catalogue. Le stock sera ajoute a la reception de l'achat."
+        className="max-w-lg"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="outline" onClick={() => setProductFormOpen(false)}>
+              Annuler
+            </Button>
+            <Button variant="success" onClick={handleCreateProduct}>
+              Creer et ajouter
+            </Button>
+          </div>
+        }
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Nom</Label>
+            <Input
+              value={newProduct.name}
+              onChange={(e) =>
+                setNewProduct((p) => ({ ...p, name: e.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>SKU</Label>
+            <Input
+              value={newProduct.sku}
+              onChange={(e) =>
+                setNewProduct((p) => ({ ...p, sku: e.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Categorie</Label>
+            <select
+              value={newProduct.categoryId}
+              onChange={(e) =>
+                setNewProduct((p) => ({ ...p, categoryId: e.target.value }))
+              }
+              className="flex h-11 w-full rounded-xl border border-border bg-input px-4 text-sm"
+            >
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Prix achat</Label>
+            <Input
+              type="number"
+              min={0}
+              value={newProduct.purchasePrice}
+              onChange={(e) =>
+                setNewProduct((p) => ({ ...p, purchasePrice: e.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Prix vente</Label>
+            <Input
+              type="number"
+              min={0}
+              value={newProduct.salePrice}
+              onChange={(e) =>
+                setNewProduct((p) => ({ ...p, salePrice: e.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Seuil min</Label>
+            <Input
+              type="number"
+              min={0}
+              value={newProduct.minStock}
+              onChange={(e) =>
+                setNewProduct((p) => ({ ...p, minStock: e.target.value }))
+              }
+            />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Description</Label>
+            <Input
+              value={newProduct.description}
+              onChange={(e) =>
+                setNewProduct((p) => ({ ...p, description: e.target.value }))
+              }
+            />
+          </div>
+        </div>
+        {productError ? (
+          <p className="text-sm text-destructive">{productError}</p>
+        ) : null}
       </FormDialog>
 
       <FormDialog
@@ -476,6 +701,7 @@ export function PurchasesWorkspace() {
       </FormDialog>
 
       {dialog}
+      <ToastViewport toast={toast} />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { DataTable, type DataColumn } from "@/components/crud/data-table";
 import { FormDialog } from "@/components/crud/form-dialog";
@@ -15,7 +16,6 @@ import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { useEntityList } from "@/hooks/use-entity-list";
 import { listCategories } from "@/lib/repositories/categories";
 import {
-  createProduct,
   listProducts,
   removeProduct,
   updateProduct,
@@ -30,7 +30,6 @@ type ProductFormState = {
   name: string;
   sku: string;
   description: string;
-  quantity: string;
   minStock: string;
   purchasePrice: string;
   salePrice: string;
@@ -39,19 +38,6 @@ type ProductFormState = {
   isActive: boolean;
 };
 
-const emptyForm = (categoryId = ""): ProductFormState => ({
-  name: "",
-  sku: "",
-  description: "",
-  quantity: "0",
-  minStock: "0",
-  purchasePrice: "0",
-  salePrice: "0",
-  categoryId,
-  supplierId: "",
-  isActive: true,
-});
-
 function stockTone(product: Product) {
   if (product.quantity <= 0) return "out" as const;
   if (product.quantity <= product.minStock) return "low" as const;
@@ -59,12 +45,13 @@ function stockTone(product: Product) {
 }
 
 export function ProductsWorkspace() {
+  const router = useRouter();
   const { confirm, dialog } = useConfirmDialog();
   const { toast, showToast } = useToast();
   const [version, setVersion] = useState(0);
   const [stockFilter, setStockFilter] = useState<StockFilter>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [form, setForm] = useState<ProductFormState>(emptyForm());
+  const [form, setForm] = useState<ProductFormState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const categories = useMemo(() => listCategories(), [version]);
@@ -101,18 +88,11 @@ export function ProductsWorkspace() {
   const lowCount = items.filter((p) => stockTone(p) === "low").length;
   const outCount = items.filter((p) => stockTone(p) === "out").length;
 
-  const openCreate = () => {
-    setForm(emptyForm(categories[0]?.id ?? ""));
-    setError(null);
-    list.openCreate();
-  };
-
   const openEdit = (item: Product) => {
     setForm({
       name: item.name,
       sku: item.sku,
       description: item.description ?? "",
-      quantity: String(item.quantity),
       minStock: String(item.minStock),
       purchasePrice: String(item.purchasePrice),
       salePrice: String(item.salePrice),
@@ -125,31 +105,27 @@ export function ProductsWorkspace() {
   };
 
   const handleSave = () => {
-    const payload = {
+    if (!list.editing || !form) return;
+    const result = updateProduct(list.editing.id, {
       name: form.name,
       sku: form.sku,
       description: form.description,
-      quantity: Number(form.quantity) || 0,
+      quantity: list.editing.quantity,
       minStock: Number(form.minStock) || 0,
       purchasePrice: Number(form.purchasePrice) || 0,
       salePrice: Number(form.salePrice) || 0,
       categoryId: form.categoryId,
       supplierId: form.supplierId || undefined,
       isActive: form.isActive,
-    };
-    const result = list.editing
-      ? updateProduct(list.editing.id, payload)
-      : createProduct(payload);
+    });
     if (!result.ok) {
       setError(result.error);
       return;
     }
     list.closeForm();
+    setForm(null);
     setVersion((v) => v + 1);
-    showToast(
-      list.editing ? "Produit mis a jour" : "Produit cree",
-      "success",
-    );
+    showToast("Produit mis a jour", "success");
   };
 
   const handleDelete = async (item: Product) => {
@@ -250,9 +226,12 @@ export function ProductsWorkspace() {
     <div className="space-y-6">
       <PageHeader
         title="Produits"
-        description="Catalogue, prix et niveaux de stock."
+        description="Catalogue et fiches. Le stock s'ajoute via un achat / reception."
         actions={
-          <Button variant="success" onClick={openCreate}>
+          <Button
+            variant="success"
+            onClick={() => router.push("/achats?nouveau=1")}
+          >
             <Plus className="h-4 w-4" />
             Nouveau produit
           </Button>
@@ -308,17 +287,30 @@ export function ProductsWorkspace() {
         columns={columns}
         rowKey={(row) => row.id}
         emptyTitle="Aucun produit"
+        emptyDescription="Ajoutez un produit via un achat fournisseur."
         onRowClick={openEdit}
       />
 
       <FormDialog
-        open={list.formOpen}
-        onOpenChange={(open) => (!open ? list.closeForm() : list.setFormOpen(true))}
-        title={list.editing ? "Modifier le produit" : "Nouveau produit"}
+        open={list.formOpen && !!list.editing && !!form}
+        onOpenChange={(open) => {
+          if (!open) {
+            list.closeForm();
+            setForm(null);
+          }
+        }}
+        title="Modifier le produit"
+        description={`Stock actuel : ${list.editing?.quantity ?? 0} (modifie uniquement via Achats)`}
         className="max-w-xl"
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="outline" onClick={list.closeForm}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                list.closeForm();
+                setForm(null);
+              }}
+            >
               Annuler
             </Button>
             <Button variant="success" onClick={handleSave}>
@@ -327,118 +319,113 @@ export function ProductsWorkspace() {
           </div>
         }
       >
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>Nom</Label>
-            <Input
-              value={form.name}
-              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>SKU</Label>
-            <Input
-              value={form.sku}
-              onChange={(e) => setForm((p) => ({ ...p, sku: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Categorie</Label>
-            <select
-              value={form.categoryId}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, categoryId: e.target.value }))
-              }
-              className="flex h-11 w-full rounded-xl border border-border bg-input px-4 text-sm"
-            >
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Fournisseur</Label>
-            <select
-              value={form.supplierId}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, supplierId: e.target.value }))
-              }
-              className="flex h-11 w-full rounded-xl border border-border bg-input px-4 text-sm"
-            >
-              <option value="">Aucun</option>
-              {suppliers.map((supplier) => (
-                <option key={supplier.id} value={supplier.id}>
-                  {supplier.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Stock</Label>
-            <Input
-              type="number"
-              min={0}
-              value={form.quantity}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, quantity: e.target.value }))
-              }
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Seuil min</Label>
-            <Input
-              type="number"
-              min={0}
-              value={form.minStock}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, minStock: e.target.value }))
-              }
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Prix achat</Label>
-            <Input
-              type="number"
-              min={0}
-              value={form.purchasePrice}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, purchasePrice: e.target.value }))
-              }
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Prix vente</Label>
-            <Input
-              type="number"
-              min={0}
-              value={form.salePrice}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, salePrice: e.target.value }))
-              }
-            />
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label>Description</Label>
-            <Input
-              value={form.description}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, description: e.target.value }))
-              }
-            />
-          </div>
-        </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={form.isActive}
-            onChange={(e) => setForm((p) => ({ ...p, isActive: e.target.checked }))}
-            className="h-4 w-4 rounded border-border"
-          />
-          Produit actif
-        </label>
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {form ? (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Nom</Label>
+                <Input
+                  value={form.name}
+                  onChange={(e) => setForm((p) => p && { ...p, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>SKU</Label>
+                <Input
+                  value={form.sku}
+                  onChange={(e) => setForm((p) => p && { ...p, sku: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Categorie</Label>
+                <select
+                  value={form.categoryId}
+                  onChange={(e) =>
+                    setForm((p) => p && { ...p, categoryId: e.target.value })
+                  }
+                  className="flex h-11 w-full rounded-xl border border-border bg-input px-4 text-sm"
+                >
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Fournisseur</Label>
+                <select
+                  value={form.supplierId}
+                  onChange={(e) =>
+                    setForm((p) => p && { ...p, supplierId: e.target.value })
+                  }
+                  className="flex h-11 w-full rounded-xl border border-border bg-input px-4 text-sm"
+                >
+                  <option value="">Aucun</option>
+                  {suppliers.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Seuil min</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.minStock}
+                  onChange={(e) =>
+                    setForm((p) => p && { ...p, minStock: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Prix achat</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.purchasePrice}
+                  onChange={(e) =>
+                    setForm((p) => p && { ...p, purchasePrice: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Prix vente</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.salePrice}
+                  onChange={(e) =>
+                    setForm((p) => p && { ...p, salePrice: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Description</Label>
+                <Input
+                  value={form.description}
+                  onChange={(e) =>
+                    setForm((p) => p && { ...p, description: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(e) =>
+                  setForm((p) => p && { ...p, isActive: e.target.checked })
+                }
+                className="h-4 w-4 rounded border-border"
+              />
+              Produit actif
+            </label>
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          </>
+        ) : null}
       </FormDialog>
 
       {dialog}
