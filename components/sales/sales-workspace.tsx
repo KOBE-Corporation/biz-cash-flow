@@ -12,25 +12,26 @@ import {
   addProductToCart,
   filterProductsByStock,
   getAvailableStock,
-  getCartItemCount,
   getCartTotal,
-  paymentMethodLabels,
   paymentMethodShortcuts,
   removeFromCart,
   updateCartQuantity,
 } from "@/lib/sales/cart";
+import { createSaleInvoice } from "@/lib/actions/sales";
+import { CURRENT_USER } from "@/lib/auth/current-user";
 import { isTypingTarget } from "@/lib/sales/shortcuts";
 import { openSalesShortcutsHelp } from "@/lib/sales/events";
 import { ProductPicker } from "@/components/sales/product-picker";
 import { CartPanel } from "@/components/sales/cart-panel";
 import { CheckoutPanel } from "@/components/sales/checkout-panel";
 import { ReimbursementPanel } from "@/components/sales/reimbursement-panel";
-import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { SaleInvoicePreviewDialog } from "@/components/sales/sale-invoice-preview-dialog";
+import { ConfirmDialog } from "@/components/ui/dialog";
 import { formatCurrency } from "@/lib/utils";
 
 export function SalesWorkspace() {
   const searchRef = useRef<HTMLInputElement>(null);
+  const validateRef = useRef<HTMLButtonElement>(null);
   const [query, setQuery] = useState("");
   const [lines, setLines] = useState<CartLine[]>([]);
   const [discount, setDiscount] = useState(0);
@@ -39,14 +40,12 @@ export function SalesWorkspace() {
   const [note, setNote] = useState("");
   const [amountReceived, setAmountReceived] = useState(0);
   const [clientCounter, setClientCounter] = useState(1);
-  const [lastClientName, setLastClientName] = useState("");
   const [stockFilter, setStockFilter] = useState<StockFilter>("available");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [flashProductId, setFlashProductId] = useState<string | null>(null);
   const [clearOpen, setClearOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [successOpen, setSuccessOpen] = useState(false);
-  const [lastTotal, setLastTotal] = useState(0);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const products = useMemo(() => {
@@ -154,14 +153,46 @@ export function SalesWorkspace() {
   }, []);
 
   const handleCheckoutConfirm = async () => {
+    if (checkoutLoading || lines.length === 0) return;
+
     const clientName = resolveClientName();
-    if (!note.trim()) {
-      setClientCounter((value) => value + 1);
+    const total = getCartTotal(lines, discount, discountMode);
+    const noteSnapshot = note;
+    const linesSnapshot = lines;
+    const discountSnapshot = discount;
+    const discountModeSnapshot = discountMode;
+    const paymentSnapshot = paymentMethod;
+    const receivedSnapshot = amountReceived;
+
+    setCheckoutLoading(true);
+    try {
+      const result = await createSaleInvoice({
+        lines: linesSnapshot,
+        customerName: clientName,
+        paymentMethod: paymentSnapshot,
+        discount: discountSnapshot,
+        discountMode: discountModeSnapshot,
+        amountReceived: receivedSnapshot,
+        notes: noteSnapshot.trim() || undefined,
+      });
+
+      if (!result.ok) {
+        setToast(`Erreur : ${result.error}`);
+        return;
+      }
+
+      if (!noteSnapshot.trim()) {
+        setClientCounter((value) => value + 1);
+      }
+      setCheckoutOpen(false);
+      resetSale();
+      setToast(
+        `Vente ${result.invoiceNumber} — ${clientName} — ${formatCurrency(total)} — par ${result.issuedBy.name}`,
+      );
+      queueMicrotask(() => searchRef.current?.focus());
+    } finally {
+      setCheckoutLoading(false);
     }
-    setLastClientName(clientName);
-    setLastTotal(getCartTotal(lines, discount, discountMode));
-    resetSale();
-    setSuccessOpen(true);
   };
 
   const openCheckout = useCallback(() => {
@@ -169,9 +200,13 @@ export function SalesWorkspace() {
     setCheckoutOpen(true);
   }, [lines.length]);
 
+  const focusValidate = useCallback(() => {
+    validateRef.current?.focus();
+  }, []);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (clearOpen || checkoutOpen || successOpen) return;
+      if (clearOpen || checkoutOpen) return;
 
       const typing = isTypingTarget(event.target);
       const meta = event.ctrlKey || event.metaKey;
@@ -235,6 +270,7 @@ export function SalesWorkspace() {
       }
 
       if (!typing && event.key === "Enter") {
+        if (event.target instanceof HTMLButtonElement) return;
         const product = products[highlightedIndex];
         if (product && getAvailableStock(product, lines) > 0) {
           event.preventDefault();
@@ -254,7 +290,6 @@ export function SalesWorkspace() {
     lines,
     openCheckout,
     products,
-    successOpen,
   ]);
 
   return (
@@ -307,10 +342,12 @@ export function SalesWorkspace() {
               onPaymentMethodChange={setPaymentMethod}
               onNoteChange={setNote}
               onAmountReceivedChange={setAmountReceived}
+              onAmountReceivedSubmit={focusValidate}
             />
           </div>
           <div className="min-h-0 min-w-0 overflow-hidden">
             <ReimbursementPanel
+              ref={validateRef}
               lines={lines}
               discount={discount}
               discountMode={discountMode}
@@ -344,34 +381,22 @@ export function SalesWorkspace() {
         }}
       />
 
-      <ConfirmDialog
+      <SaleInvoicePreviewDialog
         open={checkoutOpen}
-        onOpenChange={setCheckoutOpen}
-        title="Confirmer la vente ?"
-        description={`${getCartItemCount(lines)} article(s) — Total ${formatCurrency(getCartTotal(lines, discount, discountMode))} — Paiement : ${paymentMethodLabels[paymentMethod]} — Client : ${resolveClientName()}.`}
-        confirmLabel="Confirmer la vente"
-        cancelLabel="Retour"
-        variant="default"
+        onOpenChange={(open) => {
+          if (checkoutLoading) return;
+          setCheckoutOpen(open);
+        }}
+        lines={lines}
+        discount={discount}
+        discountMode={discountMode}
+        paymentMethod={paymentMethod}
+        amountReceived={amountReceived}
+        clientName={resolveClientName()}
+        issuedByName={CURRENT_USER.name}
+        loading={checkoutLoading}
         onConfirm={handleCheckoutConfirm}
       />
-
-      <Dialog
-        open={successOpen}
-        onOpenChange={setSuccessOpen}
-        title="Vente enregistree"
-        description={`Vente pour ${lastClientName} — total ${formatCurrency(lastTotal)}. Le stock sera mis a jour automatiquement une fois le backend connecte.`}
-      >
-        <div className="flex justify-end">
-          <Button
-            onClick={() => {
-              setSuccessOpen(false);
-              searchRef.current?.focus();
-            }}
-          >
-            Nouvelle vente
-          </Button>
-        </div>
-      </Dialog>
     </>
   );
 }

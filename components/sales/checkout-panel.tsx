@@ -27,6 +27,7 @@ type CheckoutPanelProps = {
   onPaymentMethodChange: (method: PaymentMethod) => void;
   onNoteChange: (value: string) => void;
   onAmountReceivedChange: (value: number) => void;
+  onAmountReceivedSubmit?: () => void;
 };
 
 const paymentMethods: { value: PaymentMethod; label: string }[] = [
@@ -55,6 +56,7 @@ export function CheckoutPanel({
   onPaymentMethodChange,
   onNoteChange,
   onAmountReceivedChange,
+  onAmountReceivedSubmit,
 }: CheckoutPanelProps) {
   const subtotal = getCartSubtotal(lines);
   const discountAmount = resolveDiscountAmount(subtotal, discount, discountMode);
@@ -97,6 +99,11 @@ export function CheckoutPanel({
                   Math.max(0, Number(event.target.value) || 0),
                 )
               }
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                event.preventDefault();
+                onAmountReceivedSubmit?.();
+              }}
             />
             <div className="flex flex-wrap gap-1">
               <Chip

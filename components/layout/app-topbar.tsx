@@ -12,6 +12,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
+import { CURRENT_USER } from "@/lib/auth/current-user";
 import {
   getBreadcrumbs,
   getParentHref,
@@ -47,7 +48,7 @@ function AccountMenu() {
           aria-label="Menu compte"
           aria-expanded={menuOpen}
         >
-          B
+          {CURRENT_USER.initials}
         </button>
         {menuOpen ? (
           <>
@@ -60,10 +61,10 @@ function AccountMenu() {
             <div className="absolute right-0 top-full z-50 mt-2 w-60 overflow-hidden rounded-xl border border-border bg-popover py-2 shadow-card">
               <div className="px-4 py-3">
                 <p className="text-sm font-semibold text-foreground">
-                  Ben Djibril
+                  {CURRENT_USER.name}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
-                  bendjibril789@gmail.com
+                  {CURRENT_USER.email}
                 </p>
               </div>
               <div className="border-t border-border pt-1">

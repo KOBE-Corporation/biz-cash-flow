@@ -1,5 +1,6 @@
 "use client";
 
+import { forwardRef } from "react";
 import { Banknote } from "lucide-react";
 import type { CartLine, PaymentMethod } from "@/lib/types";
 import type { DiscountMode } from "@/lib/sales/cart";
@@ -21,14 +22,20 @@ type ReimbursementPanelProps = {
   onCheckout: () => void;
 };
 
-export function ReimbursementPanel({
-  lines,
-  discount,
-  discountMode,
-  paymentMethod,
-  amountReceived,
-  onCheckout,
-}: ReimbursementPanelProps) {
+export const ReimbursementPanel = forwardRef<
+  HTMLButtonElement,
+  ReimbursementPanelProps
+>(function ReimbursementPanel(
+  {
+    lines,
+    discount,
+    discountMode,
+    paymentMethod,
+    amountReceived,
+    onCheckout,
+  },
+  ref,
+) {
   const total = getCartTotal(lines, discount, discountMode);
   const isEmpty = lines.length === 0;
   const change =
@@ -71,6 +78,7 @@ export function ReimbursementPanel({
         </div>
 
         <Button
+          ref={ref}
           className="h-10 w-full shrink-0 bg-success text-success-foreground hover:bg-success/90"
           disabled={isEmpty}
           onClick={onCheckout}
@@ -86,4 +94,4 @@ export function ReimbursementPanel({
       </div>
     </section>
   );
-}
+});
