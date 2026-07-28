@@ -27,7 +27,7 @@ export function CartPanel({
   const isEmpty = lines.length === 0;
 
   return (
-    <section className="flex h-auto flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card lg:h-full lg:min-h-0">
+    <section className="flex h-full min-h-[240px] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card md:min-h-0">
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2.5">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
@@ -50,7 +50,7 @@ export function CartPanel({
         </Button>
       </div>
 
-      <div className="max-h-[280px] space-y-2 overflow-y-auto px-3 py-3 lg:max-h-none lg:min-h-0 lg:flex-1">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 py-3">
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl bg-surface-2 px-3 py-6 text-center">
             <ShoppingBag className="h-6 w-6 text-muted-foreground" />

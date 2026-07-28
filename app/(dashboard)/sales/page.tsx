@@ -2,7 +2,7 @@ import { SalesWorkspace } from "@/components/sales/sales-workspace";
 
 export default function SalesPage() {
   return (
-    <div className="h-full min-w-0 w-full max-w-full lg:h-[calc(100svh-3.5rem-1rem)] lg:overflow-hidden">
+    <div className="flex w-full min-w-0 flex-col max-md:min-h-0 md:min-h-0 md:flex-1 md:overflow-hidden">
       <SalesWorkspace />
     </div>
   );

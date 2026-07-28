@@ -38,6 +38,8 @@ export function SalesWorkspace() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
   const [note, setNote] = useState("");
   const [amountReceived, setAmountReceived] = useState(0);
+  const [clientCounter, setClientCounter] = useState(1);
+  const [lastClientName, setLastClientName] = useState("");
   const [stockFilter, setStockFilter] = useState<StockFilter>("available");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [flashProductId, setFlashProductId] = useState<string | null>(null);
@@ -133,6 +135,14 @@ export function SalesWorkspace() {
     });
   }, []);
 
+  const nextClientLabel = `Client N~${clientCounter}`;
+
+  const resolveClientName = useCallback(() => {
+    const trimmed = note.trim();
+    if (trimmed) return trimmed;
+    return `Client N~${clientCounter}`;
+  }, [note, clientCounter]);
+
   const resetSale = useCallback(() => {
     setLines([]);
     setDiscount(0);
@@ -144,6 +154,11 @@ export function SalesWorkspace() {
   }, []);
 
   const handleCheckoutConfirm = async () => {
+    const clientName = resolveClientName();
+    if (!note.trim()) {
+      setClientCounter((value) => value + 1);
+    }
+    setLastClientName(clientName);
     setLastTotal(getCartTotal(lines, discount, discountMode));
     resetSale();
     setSuccessOpen(true);
@@ -244,8 +259,8 @@ export function SalesWorkspace() {
 
   return (
     <>
-      <div className="relative grid min-h-0 min-w-0 w-full max-w-full grid-cols-1 gap-2 lg:h-full lg:grid-cols-[4fr_3fr_3fr] lg:gap-2 lg:overflow-hidden">
-        <div className="min-h-0 min-w-0 overflow-hidden">
+      <div className="relative grid min-h-0 w-full min-w-0 grid-cols-1 gap-2 max-md:auto-rows-auto md:h-full md:flex-1 md:grid-cols-[minmax(0,4fr)_minmax(0,3fr)_minmax(0,3fr)] md:overflow-hidden">
+        <div className="min-h-[240px] min-w-0 overflow-hidden md:h-full md:min-h-0">
           <ProductPicker
             ref={searchRef}
             query={query}
@@ -262,7 +277,7 @@ export function SalesWorkspace() {
           />
         </div>
 
-        <div className="min-h-0 min-w-0 overflow-hidden lg:h-full">
+        <div className="min-h-[240px] min-w-0 overflow-hidden md:h-full md:min-h-0">
           <CartPanel
             lines={lines}
             onQuantityChange={(productId, quantity) =>
@@ -277,7 +292,7 @@ export function SalesWorkspace() {
           />
         </div>
 
-        <div className="grid min-h-0 min-w-0 grid-rows-[1fr_1fr] gap-2 lg:h-full">
+        <div className="grid min-h-[320px] min-w-0 grid-rows-[minmax(0,1fr)_minmax(0,1fr)] gap-2 overflow-hidden md:h-full md:min-h-0">
           <div className="min-h-0 min-w-0 overflow-hidden">
             <CheckoutPanel
               lines={lines}
@@ -286,6 +301,7 @@ export function SalesWorkspace() {
               paymentMethod={paymentMethod}
               note={note}
               amountReceived={amountReceived}
+              nextClientLabel={nextClientLabel}
               onDiscountChange={setDiscount}
               onDiscountModeChange={setDiscountMode}
               onPaymentMethodChange={setPaymentMethod}
@@ -332,7 +348,7 @@ export function SalesWorkspace() {
         open={checkoutOpen}
         onOpenChange={setCheckoutOpen}
         title="Confirmer la vente ?"
-        description={`${getCartItemCount(lines)} article(s) — Total ${formatCurrency(getCartTotal(lines, discount, discountMode))} — Paiement : ${paymentMethodLabels[paymentMethod]}.${note ? ` Note : ${note}` : ""}`}
+        description={`${getCartItemCount(lines)} article(s) — Total ${formatCurrency(getCartTotal(lines, discount, discountMode))} — Paiement : ${paymentMethodLabels[paymentMethod]} — Client : ${resolveClientName()}.`}
         confirmLabel="Confirmer la vente"
         cancelLabel="Retour"
         variant="default"
@@ -343,7 +359,7 @@ export function SalesWorkspace() {
         open={successOpen}
         onOpenChange={setSuccessOpen}
         title="Vente enregistree"
-        description={`La vente a ete enregistree avec succes pour un total de ${formatCurrency(lastTotal)}. Le stock sera mis a jour automatiquement une fois le backend connecte.`}
+        description={`Vente pour ${lastClientName} — total ${formatCurrency(lastTotal)}. Le stock sera mis a jour automatiquement une fois le backend connecte.`}
       >
         <div className="flex justify-end">
           <Button

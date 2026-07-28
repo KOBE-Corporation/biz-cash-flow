@@ -35,7 +35,7 @@ export function ReimbursementPanel({
     paymentMethod === "CASH" ? getChangeDue(total, amountReceived) : 0;
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card lg:h-full">
+    <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card">
       <div className="shrink-0 border-b border-border px-3 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
           <Banknote className="h-4 w-4 shrink-0 text-primary" />

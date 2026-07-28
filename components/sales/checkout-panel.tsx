@@ -21,6 +21,7 @@ type CheckoutPanelProps = {
   paymentMethod: PaymentMethod;
   note: string;
   amountReceived: number;
+  nextClientLabel: string;
   onDiscountChange: (value: number) => void;
   onDiscountModeChange: (mode: DiscountMode) => void;
   onPaymentMethodChange: (method: PaymentMethod) => void;
@@ -48,6 +49,7 @@ export function CheckoutPanel({
   paymentMethod,
   note,
   amountReceived,
+  nextClientLabel,
   onDiscountChange,
   onDiscountModeChange,
   onPaymentMethodChange,
@@ -61,7 +63,7 @@ export function CheckoutPanel({
   const isCash = paymentMethod === "CASH";
 
   return (
-    <section className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card lg:h-full lg:min-h-0">
+    <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card">
       <div className="shrink-0 border-b border-border px-3 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
           <Wallet className="h-4 w-4 shrink-0 text-primary" />
@@ -70,34 +72,11 @@ export function CheckoutPanel({
           </h2>
         </div>
         <p className="truncate text-xs text-muted-foreground">
-          Mode, montant recu, remise
+          Montant recu, mode, client
         </p>
       </div>
 
       <div className="min-h-0 min-w-0 flex-1 space-y-2.5 overflow-x-hidden overflow-y-auto px-3 py-2.5">
-        <div className="space-y-1.5">
-          <Label className="text-[11px] text-muted-foreground">
-            Mode · Ctrl+1..2
-          </Label>
-          <div className="grid grid-cols-2 gap-1.5">
-            {paymentMethods.map((method, index) => (
-              <button
-                key={method.value}
-                type="button"
-                onClick={() => onPaymentMethodChange(method.value)}
-                className={cn(
-                  "min-w-0 truncate rounded-lg px-2 py-2 text-center text-[11px] font-medium transition-colors",
-                  paymentMethod === method.value
-                    ? "bg-surface-active text-foreground"
-                    : "bg-surface-2 text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {index + 1}. {method.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {isCash ? (
           <div className="space-y-1.5">
             <Label
@@ -151,6 +130,29 @@ export function CheckoutPanel({
           </div>
         ) : null}
 
+        <div className="space-y-1.5">
+          <Label className="text-[11px] text-muted-foreground">
+            Mode · Ctrl+1..2
+          </Label>
+          <div className="grid grid-cols-2 gap-1.5">
+            {paymentMethods.map((method, index) => (
+              <button
+                key={method.value}
+                type="button"
+                onClick={() => onPaymentMethodChange(method.value)}
+                className={cn(
+                  "min-w-0 truncate rounded-lg px-2 py-2 text-center text-[11px] font-medium transition-colors",
+                  paymentMethod === method.value
+                    ? "bg-surface-active text-foreground"
+                    : "bg-surface-2 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {index + 1}. {method.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="space-y-1">
           <div className="flex items-center justify-between gap-2">
             <Label htmlFor="discount" className="text-[11px] text-muted-foreground">
@@ -189,15 +191,18 @@ export function CheckoutPanel({
 
         <div className="space-y-1">
           <Label htmlFor="note" className="text-[11px] text-muted-foreground">
-            Note
+            Client
           </Label>
           <Input
             id="note"
             value={note}
-            placeholder="Client..."
+            placeholder={nextClientLabel}
             className="h-8 text-xs"
             onChange={(event) => onNoteChange(event.target.value)}
           />
+          <p className="text-[10px] text-muted-foreground">
+            Vide = {nextClientLabel} sur la facture
+          </p>
         </div>
 
         <Separator />
