@@ -243,7 +243,7 @@ export function SalesWorkspace() {
 
   return (
     <>
-      <div className="relative flex min-h-[calc(100svh-8rem)] flex-col gap-4 lg:flex-row">
+      <div className="relative flex h-full min-h-0 flex-col gap-3 overflow-hidden lg:flex-row">
         <ProductPicker
           ref={searchRef}
           query={query}
@@ -259,31 +259,37 @@ export function SalesWorkspace() {
           flashProductId={flashProductId}
         />
 
-        <div className="flex min-h-0 w-full flex-col gap-4 lg:max-w-md xl:max-w-lg">
-          <CartPanel
-            lines={lines}
-            onQuantityChange={(productId, quantity) =>
-              setLines((prev) => updateCartQuantity(prev, productId, quantity))
-            }
-            onRemove={(productId) =>
-              setLines((prev) => removeFromCart(prev, productId))
-            }
-            onClear={() => setClearOpen(true)}
-          />
-          <CheckoutPanel
-            lines={lines}
-            discount={discount}
-            discountMode={discountMode}
-            paymentMethod={paymentMethod}
-            note={note}
-            amountReceived={amountReceived}
-            onDiscountChange={setDiscount}
-            onDiscountModeChange={setDiscountMode}
-            onPaymentMethodChange={setPaymentMethod}
-            onNoteChange={setNote}
-            onAmountReceivedChange={setAmountReceived}
-            onCheckout={openCheckout}
-          />
+        <div className="flex h-full min-h-0 w-full flex-col gap-3 lg:w-[380px] lg:shrink-0 xl:w-[420px]">
+          <div className="min-h-0 flex-[1.15]">
+            <CartPanel
+              lines={lines}
+              onQuantityChange={(productId, quantity) =>
+                setLines((prev) =>
+                  updateCartQuantity(prev, productId, quantity),
+                )
+              }
+              onRemove={(productId) =>
+                setLines((prev) => removeFromCart(prev, productId))
+              }
+              onClear={() => setClearOpen(true)}
+            />
+          </div>
+          <div className="min-h-0 flex-1">
+            <CheckoutPanel
+              lines={lines}
+              discount={discount}
+              discountMode={discountMode}
+              paymentMethod={paymentMethod}
+              note={note}
+              amountReceived={amountReceived}
+              onDiscountChange={setDiscount}
+              onDiscountModeChange={setDiscountMode}
+              onPaymentMethodChange={setPaymentMethod}
+              onNoteChange={setNote}
+              onAmountReceivedChange={setAmountReceived}
+              onCheckout={openCheckout}
+            />
+          </div>
         </div>
 
         {toast ? (

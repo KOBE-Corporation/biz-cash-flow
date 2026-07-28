@@ -63,74 +63,74 @@ export const ProductPicker = forwardRef<HTMLInputElement, ProductPickerProps>(
     }, [highlightedIndex]);
 
     return (
-      <section className="flex min-h-0 flex-1 flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-card">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <h2 className="text-base font-semibold text-foreground">Produits</h2>
-              <p className="text-xs text-muted-foreground">
-                `/` recherche · ↑↓ naviguer · Enter ajouter · scanner SKU
-              </p>
-            </div>
-            <Badge variant="outline" className="hidden sm:inline-flex">
-              <ScanLine className="h-3.5 w-3.5" />
-              Scanner
-            </Badge>
+    <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border bg-card p-3 shadow-card lg:h-full lg:p-4">
+      <div className="shrink-0 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Produits</h2>
+            <p className="text-xs text-muted-foreground">
+              `/` recherche · ↑↓ naviguer · Enter ajouter · scanner SKU
+            </p>
           </div>
-
-          <SearchInput
-            ref={ref}
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowDown") {
-                event.preventDefault();
-                onHighlightChange(
-                  Math.min(highlightedIndex + 1, Math.max(0, products.length - 1)),
-                );
-                return;
-              }
-              if (event.key === "ArrowUp") {
-                event.preventDefault();
-                onHighlightChange(Math.max(highlightedIndex - 1, 0));
-                return;
-              }
-              if (event.key === "Enter") {
-                event.preventDefault();
-                const scanned = onScanSubmit(query);
-                if (scanned) {
-                  onQueryChange("");
-                  return;
-                }
-                const product = products[highlightedIndex];
-                if (product && getAvailableStock(product, lines) > 0) {
-                  onSelect(product);
-                }
-              }
-              if (event.key === "Escape") {
-                event.preventDefault();
-                onQueryChange("");
-              }
-            }}
-            placeholder="Rechercher un produit ou scanner un code..."
-            autoFocus
-          />
-
-          <div className="flex flex-wrap gap-2">
-            {filters.map((filter) => (
-              <Chip
-                key={filter.value}
-                active={stockFilter === filter.value}
-                onClick={() => onStockFilterChange(filter.value)}
-                className="px-3 py-1.5 text-xs"
-              >
-                {filter.label}
-              </Chip>
-            ))}
-          </div>
+          <Badge variant="outline" className="hidden sm:inline-flex">
+            <ScanLine className="h-3.5 w-3.5" />
+            Scanner
+          </Badge>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+        <SearchInput
+          ref={ref}
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              onHighlightChange(
+                Math.min(highlightedIndex + 1, Math.max(0, products.length - 1)),
+              );
+              return;
+            }
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              onHighlightChange(Math.max(highlightedIndex - 1, 0));
+              return;
+            }
+            if (event.key === "Enter") {
+              event.preventDefault();
+              const scanned = onScanSubmit(query);
+              if (scanned) {
+                onQueryChange("");
+                return;
+              }
+              const product = products[highlightedIndex];
+              if (product && getAvailableStock(product, lines) > 0) {
+                onSelect(product);
+              }
+            }
+            if (event.key === "Escape") {
+              event.preventDefault();
+              onQueryChange("");
+            }
+          }}
+          placeholder="Rechercher un produit ou scanner un code..."
+          autoFocus
+        />
+
+        <div className="flex flex-wrap gap-2">
+          {filters.map((filter) => (
+            <Chip
+              key={filter.value}
+              active={stockFilter === filter.value}
+              onClick={() => onStockFilterChange(filter.value)}
+              className="px-3 py-1.5 text-xs"
+            >
+              {filter.label}
+            </Chip>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
           {products.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 rounded-xl bg-surface-2 px-4 py-16 text-center">
               <Package className="h-8 w-8 text-muted-foreground" />

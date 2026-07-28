@@ -6,13 +6,31 @@ type PageHeaderProps = {
   title: string;
   description?: string;
   actions?: React.ReactNode;
+  className?: string;
+  titleClassName?: string;
 };
 
-export function PageHeader({ title, description, actions }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  description,
+  actions,
+  className,
+  titleClassName,
+}: PageHeaderProps) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div
+      className={cn(
+        "flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between",
+        className,
+      )}
+    >
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+        <h1
+          className={cn(
+            "text-2xl font-bold tracking-tight text-foreground sm:text-3xl",
+            titleClassName,
+          )}
+        >
           {title}
         </h1>
         {description ? (

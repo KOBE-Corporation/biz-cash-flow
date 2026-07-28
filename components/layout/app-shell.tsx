@@ -7,12 +7,12 @@ import { SidebarProvider } from "@/components/layout/sidebar-context";
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen bg-background">
+      <div className="flex min-h-screen bg-background lg:h-svh lg:overflow-hidden">
         <AppSidebar />
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <AppTopbar />
-          <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          <main className="mx-auto w-full max-w-7xl min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
             {children}
           </main>
         </div>

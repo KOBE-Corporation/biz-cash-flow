@@ -58,30 +58,29 @@ export function CheckoutPanel({
   const total = getCartTotal(lines, discount, discountMode);
   const change = getChangeDue(total, amountReceived);
   const isEmpty = lines.length === 0;
-  const lastLine = lines[lines.length - 1];
 
   return (
-    <section className="flex shrink-0 flex-col rounded-2xl border border-border bg-card shadow-card">
-      <div className="border-b border-border px-4 py-4">
+    <section className="flex h-full min-h-0 flex-col rounded-2xl border border-border bg-card shadow-card">
+      <div className="shrink-0 border-b border-border px-4 py-3">
         <h2 className="text-base font-semibold text-foreground">Paiement</h2>
         <p className="text-xs text-muted-foreground">
           Remise, reglement et validation · F4
         </p>
       </div>
 
-      <div className="space-y-4 px-4 py-4">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">
             Mode de paiement · Ctrl+1..4
           </Label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-1.5">
             {paymentMethods.map((method, index) => (
               <button
                 key={method}
                 type="button"
                 onClick={() => onPaymentMethodChange(method)}
                 className={cn(
-                  "rounded-xl px-3 py-2 text-xs font-medium transition-colors",
+                  "rounded-xl px-2.5 py-2 text-xs font-medium transition-colors",
                   paymentMethod === method
                     ? "bg-surface-active text-foreground"
                     : "bg-surface-2 text-muted-foreground hover:text-foreground",
@@ -96,8 +95,8 @@ export function CheckoutPanel({
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="space-y-1">
             <div className="flex items-center justify-between gap-2">
               <Label htmlFor="discount" className="text-xs text-muted-foreground">
                 Remise
@@ -126,26 +125,28 @@ export function CheckoutPanel({
               max={discountMode === "percent" ? 100 : undefined}
               value={discount || ""}
               placeholder="0"
+              className="h-9"
               onChange={(event) =>
                 onDiscountChange(Math.max(0, Number(event.target.value) || 0))
               }
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <Label htmlFor="note" className="text-xs text-muted-foreground">
-              Note (optionnel)
+              Note
             </Label>
             <Input
               id="note"
               value={note}
               placeholder="Client, reference..."
+              className="h-9"
               onChange={(event) => onNoteChange(event.target.value)}
             />
           </div>
         </div>
 
         {paymentMethod === "CASH" ? (
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <Label htmlFor="received" className="text-xs text-muted-foreground">
               Montant recu
             </Label>
@@ -155,6 +156,7 @@ export function CheckoutPanel({
               min={0}
               value={amountReceived || ""}
               placeholder={String(total || 0)}
+              className="h-9"
               onChange={(event) =>
                 onAmountReceivedChange(
                   Math.max(0, Number(event.target.value) || 0),
@@ -163,7 +165,7 @@ export function CheckoutPanel({
             />
             {amountReceived > 0 ? (
               <p className="text-xs text-muted-foreground">
-                Monnaie a rendre :{" "}
+                Monnaie :{" "}
                 <span className="font-semibold text-foreground">
                   {formatCurrency(change)}
                 </span>
@@ -174,7 +176,7 @@ export function CheckoutPanel({
 
         <Separator />
 
-        <div className="space-y-2 text-sm">
+        <div className="space-y-1.5 text-sm">
           <div className="flex items-center justify-between text-muted-foreground">
             <span>Sous-total</span>
             <span>{formatCurrency(subtotal)}</span>
@@ -188,17 +190,14 @@ export function CheckoutPanel({
             </span>
             <span>- {formatCurrency(discountAmount)}</span>
           </div>
-          <div className="flex items-center justify-between text-lg font-bold text-foreground">
+          <div className="flex items-center justify-between text-base font-bold text-foreground">
             <span>Total</span>
             <span>{formatCurrency(total)}</span>
           </div>
-          {lastLine ? (
-            <p className="text-[11px] text-muted-foreground">
-              Dernier article : {lastLine.name}
-            </p>
-          ) : null}
         </div>
+      </div>
 
+      <div className="shrink-0 border-t border-border px-4 py-3">
         <Button
           className="w-full bg-success text-success-foreground hover:bg-success/90"
           size="lg"
