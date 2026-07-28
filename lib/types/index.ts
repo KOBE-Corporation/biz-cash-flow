@@ -35,7 +35,7 @@ export type InvoiceStatus = "DRAFT" | "SENT" | "PAID" | "CANCELLED";
 
 export type PurchaseStatus = "PENDING" | "RECEIVED" | "CANCELLED";
 
-export type PaymentMethod = "CASH" | "MOBILE_MONEY" | "CARD" | "CREDIT";
+export type PaymentMethod = "CASH" | "MOBILE_MONEY";
 
 export type CartLine = {
   productId: string;

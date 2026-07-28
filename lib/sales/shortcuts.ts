@@ -11,7 +11,7 @@ export const salesShortcuts: ShortcutItem[] = [
   { keys: ["+", "-"], label: "Qte du dernier article" },
   { keys: ["F4"], label: "Valider la vente" },
   { keys: ["Ctrl", "Backspace"], label: "Vider le panier" },
-  { keys: ["Ctrl", "1-4"], label: "Mode de paiement" },
+  { keys: ["Ctrl", "1-2"], label: "Mode de paiement" },
   { keys: ["?"], label: "Afficher les raccourcis" },
 ];
 

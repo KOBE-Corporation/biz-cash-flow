@@ -12,7 +12,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <AppTopbar />
-          <main className="mx-auto w-full max-w-7xl min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
+          <main className="mx-auto w-full max-w-7xl min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-2 py-2 sm:px-3 sm:py-3 lg:px-3 lg:py-2">
             {children}
           </main>
         </div>

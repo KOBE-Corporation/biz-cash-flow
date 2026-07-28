@@ -21,7 +21,7 @@ import { salesShortcuts } from "@/lib/sales/shortcuts";
 import { useSidebar } from "@/components/layout/sidebar-context";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 function AccountMenu() {
@@ -96,55 +96,71 @@ function AccountMenu() {
 }
 
 function SalesShortcutsControl() {
-  const [helpOpen, setHelpOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    const onOpen = () => setHelpOpen(true);
+    const onOpen = () => setMenuOpen(true);
     window.addEventListener(SALES_OPEN_SHORTCUTS_EVENT, onOpen);
     return () => window.removeEventListener(SALES_OPEN_SHORTCUTS_EVENT, onOpen);
   }, []);
 
   return (
-    <>
+    <div className="relative">
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setHelpOpen(true)}
+        onClick={() => setMenuOpen((value) => !value)}
         aria-label="Afficher les raccourcis"
+        aria-expanded={menuOpen}
       >
         <Keyboard className="h-4 w-4" />
         <span className="hidden sm:inline">Raccourcis</span>
         <span className="text-[10px] text-muted-foreground">?</span>
       </Button>
 
-      <Dialog
-        open={helpOpen}
-        onOpenChange={setHelpOpen}
-        title="Raccourcis clavier"
-        description="Optimises pour une caisse rapide au clavier et au scanner."
-      >
-        <ul className="space-y-2">
-          {salesShortcuts.map((item) => (
-            <li
-              key={item.label}
-              className="flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2 text-sm"
-            >
-              <span className="text-muted-foreground">{item.label}</span>
-              <span className="flex flex-wrap justify-end gap-1">
-                {item.keys.map((key) => (
-                  <kbd
-                    key={`${item.label}-${key}`}
-                    className="rounded-md border border-border bg-card px-2 py-0.5 text-[11px] font-medium text-foreground"
-                  >
-                    {key}
-                  </kbd>
-                ))}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Dialog>
-    </>
+      {menuOpen ? (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-40 cursor-default"
+            aria-label="Fermer les raccourcis"
+            onClick={() => setMenuOpen(false)}
+          />
+          <div className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-xl border border-border bg-popover py-2 shadow-card sm:w-80">
+            <div className="px-4 py-3">
+              <p className="text-sm font-semibold text-foreground">
+                Raccourcis clavier
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Caisse rapide — clavier et scanner
+              </p>
+            </div>
+            <div className="border-t border-border py-1">
+              {salesShortcuts.map((item) => (
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between gap-3 px-4 py-2"
+                >
+                  <span className="min-w-0 truncate text-sm text-muted-foreground">
+                    {item.label}
+                  </span>
+                  <span className="flex shrink-0 flex-wrap justify-end gap-1">
+                    {item.keys.map((key) => (
+                      <kbd
+                        key={`${item.label}-${key}`}
+                        className="rounded-md border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-foreground"
+                      >
+                        {key}
+                      </kbd>
+                    ))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      ) : null}
+    </div>
   );
 }
 

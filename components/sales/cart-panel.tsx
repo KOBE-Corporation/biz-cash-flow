@@ -27,12 +27,12 @@ export function CartPanel({
   const isEmpty = lines.length === 0;
 
   return (
-    <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card">
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">Panier</h2>
-          <p className="text-xs text-muted-foreground">
-            {itemCount} article{itemCount > 1 ? "s" : ""} · +/- pour ajuster
+    <section className="flex h-auto flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card lg:h-full lg:min-h-0">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2.5">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-foreground">Panier</h2>
+          <p className="truncate text-[11px] text-muted-foreground">
+            {itemCount} article{itemCount > 1 ? "s" : ""}
           </p>
         </div>
         <Button
@@ -40,20 +40,20 @@ export function CartPanel({
           size="sm"
           disabled={isEmpty}
           onClick={onClear}
-          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+          className="h-8 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
         >
-          <Trash2 className="h-4 w-4" />
+          <Trash2 className="h-3.5 w-3.5" />
           Vider
         </Button>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div className="max-h-[280px] space-y-2 overflow-y-auto px-3 py-3 lg:max-h-none lg:min-h-0 lg:flex-1">
         {isEmpty ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-xl bg-surface-2 px-4 py-12 text-center">
-            <ShoppingBag className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm font-medium text-foreground">Panier vide</p>
-            <p className="text-xs text-muted-foreground">
-              Selectionnez un produit a gauche pour commencer la vente.
+          <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl bg-surface-2 px-3 py-6 text-center">
+            <ShoppingBag className="h-6 w-6 text-muted-foreground" />
+            <p className="text-xs font-medium text-foreground">Panier vide</p>
+            <p className="text-[11px] text-muted-foreground">
+              Ajoutez un produit pour commencer.
             </p>
           </div>
         ) : (
@@ -63,43 +63,42 @@ export function CartPanel({
               <div
                 key={line.productId}
                 className={cn(
-                  "rounded-xl bg-surface-2 p-3 transition-colors",
+                  "rounded-lg bg-surface-2 px-2.5 py-2 transition-colors",
                   isLast && "ring-1 ring-primary/30",
                 )}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-foreground">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-semibold text-foreground">
                       {line.name}
                     </p>
-                    <p className="text-xs text-muted-foreground">{line.sku}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {formatCurrency(line.unitPrice)} / unite
+                    <p className="truncate text-[10px] text-muted-foreground">
+                      {line.sku} · {formatCurrency(line.unitPrice)}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => onRemove(line.productId)}
-                    className="rounded-lg p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    className="rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                     aria-label={`Retirer ${line.name}`}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
 
-                <div className="mt-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-1 rounded-xl bg-card p-1">
+                <div className="mt-1.5 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-0.5 rounded-lg bg-card p-0.5">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className="h-6 w-6"
                       disabled={line.quantity <= 1}
                       onClick={() =>
                         onQuantityChange(line.productId, line.quantity - 1)
                       }
                       aria-label="Diminuer"
                     >
-                      <Minus className="h-4 w-4" />
+                      <Minus className="h-3 w-3" />
                     </Button>
                     <Input
                       type="number"
@@ -112,37 +111,37 @@ export function CartPanel({
                           Number(event.target.value) || 1,
                         )
                       }
-                      className="h-8 w-14 border-0 bg-transparent px-1 text-center shadow-none"
+                      className="h-6 w-9 border-0 bg-transparent px-0 text-center text-xs shadow-none"
                     />
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className="h-6 w-6"
                       disabled={line.quantity >= line.maxQuantity}
                       onClick={() =>
                         onQuantityChange(line.productId, line.quantity + 1)
                       }
                       aria-label="Augmenter"
                     >
-                      <Plus className="h-4 w-4" />
+                      <Plus className="h-3 w-3" />
                     </Button>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-foreground">
+                  <div className="min-w-0 text-right">
+                    <p className="truncate text-xs font-bold tabular-nums text-foreground">
                       {formatCurrency(getLineTotal(line))}
                     </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {line.quantity}/{line.maxQuantity} stock
+                    <p className="text-[10px] text-muted-foreground">
+                      {line.quantity}/{line.maxQuantity}
                     </p>
                   </div>
                 </div>
 
                 {isLast ? (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
+                  <div className="mt-1.5 flex flex-wrap gap-1">
                     {quickQuantities.map((qty) => (
                       <Chip
                         key={qty}
-                        className="px-2.5 py-1 text-[11px]"
+                        className="px-1.5 py-0.5 text-[10px]"
                         active={line.quantity === qty}
                         disabled={qty > line.maxQuantity}
                         onClick={() => onQuantityChange(line.productId, qty)}
@@ -151,7 +150,7 @@ export function CartPanel({
                       </Chip>
                     ))}
                     <Chip
-                      className="px-2.5 py-1 text-[11px]"
+                      className="px-1.5 py-0.5 text-[10px]"
                       onClick={() =>
                         onQuantityChange(line.productId, line.maxQuantity)
                       }

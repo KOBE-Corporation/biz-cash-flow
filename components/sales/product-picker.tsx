@@ -63,7 +63,7 @@ export const ProductPicker = forwardRef<HTMLInputElement, ProductPickerProps>(
     }, [highlightedIndex]);
 
     return (
-    <section className="flex h-[min(55vh,420px)] flex-col rounded-2xl border border-border bg-card p-3 shadow-card lg:h-full lg:min-h-0 lg:flex-1 lg:p-4">
+    <section className="flex h-[min(50vh,380px)] w-full flex-col overflow-hidden rounded-2xl border border-border bg-card p-3 shadow-card lg:h-full lg:min-h-0 lg:p-4">
       <div className="shrink-0 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div>

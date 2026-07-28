@@ -24,6 +24,7 @@ import { openSalesShortcutsHelp } from "@/lib/sales/events";
 import { ProductPicker } from "@/components/sales/product-picker";
 import { CartPanel } from "@/components/sales/cart-panel";
 import { CheckoutPanel } from "@/components/sales/checkout-panel";
+import { ReimbursementPanel } from "@/components/sales/reimbursement-panel";
 import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
@@ -185,7 +186,7 @@ export function SalesWorkspace() {
         return;
       }
 
-      if (meta && ["1", "2", "3", "4"].includes(event.key)) {
+      if (meta && ["1", "2"].includes(event.key)) {
         event.preventDefault();
         const method = paymentMethodShortcuts[Number(event.key) - 1];
         if (method) setPaymentMethod(method);
@@ -243,50 +244,61 @@ export function SalesWorkspace() {
 
   return (
     <>
-      <div className="relative flex flex-col gap-4 lg:h-full lg:min-h-0 lg:flex-row lg:gap-3 lg:overflow-hidden">
-        <ProductPicker
-          ref={searchRef}
-          query={query}
-          onQueryChange={setQuery}
-          products={products}
-          lines={lines}
-          stockFilter={stockFilter}
-          onStockFilterChange={setStockFilter}
-          highlightedIndex={highlightedIndex}
-          onHighlightChange={setHighlightedIndex}
-          onSelect={addProduct}
-          onScanSubmit={handleScanSubmit}
-          flashProductId={flashProductId}
-        />
+      <div className="relative grid min-h-0 min-w-0 w-full max-w-full grid-cols-1 gap-2 lg:h-full lg:grid-cols-[4fr_3fr_3fr] lg:gap-2 lg:overflow-hidden">
+        <div className="min-h-0 min-w-0 overflow-hidden">
+          <ProductPicker
+            ref={searchRef}
+            query={query}
+            onQueryChange={setQuery}
+            products={products}
+            lines={lines}
+            stockFilter={stockFilter}
+            onStockFilterChange={setStockFilter}
+            highlightedIndex={highlightedIndex}
+            onHighlightChange={setHighlightedIndex}
+            onSelect={addProduct}
+            onScanSubmit={handleScanSubmit}
+            flashProductId={flashProductId}
+          />
+        </div>
 
-        <div className="flex w-full flex-col gap-4 lg:h-full lg:min-h-0 lg:w-[380px] lg:shrink-0 lg:gap-3 xl:w-[420px]">
-          <div className="min-h-[240px] max-h-[42vh] lg:max-h-none lg:min-h-0 lg:flex-[1.15]">
-            <CartPanel
+        <div className="min-h-0 min-w-0 overflow-hidden lg:h-full">
+          <CartPanel
+            lines={lines}
+            onQuantityChange={(productId, quantity) =>
+              setLines((prev) =>
+                updateCartQuantity(prev, productId, quantity),
+              )
+            }
+            onRemove={(productId) =>
+              setLines((prev) => removeFromCart(prev, productId))
+            }
+            onClear={() => setClearOpen(true)}
+          />
+        </div>
+
+        <div className="grid min-h-0 min-w-0 grid-rows-[1fr_1fr] gap-2 lg:h-full">
+          <div className="min-h-0 min-w-0 overflow-hidden">
+            <ReimbursementPanel
               lines={lines}
-              onQuantityChange={(productId, quantity) =>
-                setLines((prev) =>
-                  updateCartQuantity(prev, productId, quantity),
-                )
-              }
-              onRemove={(productId) =>
-                setLines((prev) => removeFromCart(prev, productId))
-              }
-              onClear={() => setClearOpen(true)}
+              discount={discount}
+              discountMode={discountMode}
+              paymentMethod={paymentMethod}
+              amountReceived={amountReceived}
+              onAmountReceivedChange={setAmountReceived}
             />
           </div>
-          <div className="lg:min-h-0 lg:flex-1">
+          <div className="min-h-0 min-w-0 overflow-hidden">
             <CheckoutPanel
               lines={lines}
               discount={discount}
               discountMode={discountMode}
               paymentMethod={paymentMethod}
               note={note}
-              amountReceived={amountReceived}
               onDiscountChange={setDiscount}
               onDiscountModeChange={setDiscountMode}
               onPaymentMethodChange={setPaymentMethod}
               onNoteChange={setNote}
-              onAmountReceivedChange={setAmountReceived}
               onCheckout={openCheckout}
             />
           </div>
