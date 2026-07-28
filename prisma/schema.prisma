@@ -38,14 +38,42 @@ enum PaymentMethod {
   MOBILE_MONEY
 }
 
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  RECEIVE
+  CANCEL
+  SALE
+  ADJUST
+  LOGIN
+  OTHER
+}
+
 model User {
-  id               String          @id @default(cuid())
-  email            String          @unique
-  name             String
-  invoices         Invoice[]
-  stockMovements   StockMovement[]
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  id String @id @default(cuid())
+  email String @unique
+  name  String
+
+  invoices              Invoice[]              @relation("InvoiceIssuer")
+  stockMovements        StockMovement[]
+  categoriesCreated     Category[]             @relation("CategoryCreatedBy")
+  categoriesUpdated     Category[]             @relation("CategoryUpdatedBy")
+  suppliersCreated      Supplier[]             @relation("SupplierCreatedBy")
+  suppliersUpdated      Supplier[]             @relation("SupplierUpdatedBy")
+  productsCreated       Product[]              @relation("ProductCreatedBy")
+  productsUpdated       Product[]              @relation("ProductUpdatedBy")
+  purchasesCreated      Purchase[]             @relation("PurchaseCreatedBy")
+  purchasesUpdated      Purchase[]             @relation("PurchaseUpdatedBy")
+  purchasesReceived     Purchase[]             @relation("PurchaseReceivedBy")
+  purchasesCancelled    Purchase[]             @relation("PurchaseCancelledBy")
+  offersCreated         ProductSupplierOffer[] @relation("OfferCreatedBy")
+  offersUpdated         ProductSupplierOffer[] @relation("OfferUpdatedBy")
+  accountEntries        AccountEntry[]
+  auditLogs             AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Category {
@@ -57,23 +85,37 @@ model Category {
   packLevels   Json      @default("[]")
   isActive     Boolean   @default(true)
   products     Product[]
+  createdById  String
+  createdBy    User      @relation("CategoryCreatedBy", fields: [createdById], references: [id])
+  updatedById  String?
+  updatedBy    User?     @relation("CategoryUpdatedBy", fields: [updatedById], references: [id])
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+
+  @@index([createdById])
+  @@index([updatedById])
 }
 
 model Supplier {
-  id        String                 @id @default(cuid())
-  name      String
-  email     String?
-  phone     String?
-  address   String?
-  notes     String?
-  isActive  Boolean                @default(true)
-  products  Product[]
-  purchases Purchase[]
-  offers    ProductSupplierOffer[]
-  createdAt DateTime               @default(now())
-  updatedAt DateTime               @updatedAt
+  id          String                 @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  address     String?
+  notes       String?
+  isActive    Boolean                @default(true)
+  products    Product[]
+  purchases   Purchase[]
+  offers      ProductSupplierOffer[]
+  createdById String
+  createdBy   User                   @relation("SupplierCreatedBy", fields: [createdById], references: [id])
+  updatedById String?
+  updatedBy   User?                  @relation("SupplierUpdatedBy", fields: [updatedById], references: [id])
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@index([createdById])
+  @@index([updatedById])
 }
 
 model Product {
@@ -98,6 +140,10 @@ model Product {
   invoiceItems   InvoiceItem[]
   purchaseItems  PurchaseItem[]
   supplierOffers ProductSupplierOffer[]
+  createdById    String
+  createdBy      User                   @relation("ProductCreatedBy", fields: [createdById], references: [id])
+  updatedById    String?
+  updatedBy      User?                  @relation("ProductUpdatedBy", fields: [updatedById], references: [id])
   createdAt      DateTime               @default(now())
   updatedAt      DateTime               @updatedAt
 
@@ -106,25 +152,32 @@ model Product {
   @@index([sku])
   @@index([barcode])
   @@index([isActive])
+  @@index([createdById])
+  @@index([updatedById])
 }
 
 model ProductSupplierOffer {
-  id                    String   @id @default(cuid())
-  productId             String
-  product               Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  supplierId            String
-  supplier              Supplier @relation(fields: [supplierId], references: [id])
-  packPurchasePrice     Decimal  @db.Decimal(12, 2)
-  purchasePackName      String
-  unitsPerPurchasePack  Int
-  costPerBaseUnit       Decimal  @db.Decimal(12, 2)
-  lastPurchaseAt        DateTime @default(now())
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  productId            String
+  product              Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplierId           String
+  supplier             Supplier @relation(fields: [supplierId], references: [id])
+  packPurchasePrice    Decimal  @db.Decimal(12, 2)
+  purchasePackName     String
+  unitsPerPurchasePack Int
+  costPerBaseUnit      Decimal  @db.Decimal(12, 2)
+  lastPurchaseAt       DateTime @default(now())
+  createdById          String
+  createdBy            User     @relation("OfferCreatedBy", fields: [createdById], references: [id])
+  updatedById          String?
+  updatedBy            User?    @relation("OfferUpdatedBy", fields: [updatedById], references: [id])
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@unique([productId, supplierId, purchasePackName])
   @@index([productId])
   @@index([supplierId])
+  @@index([createdById])
 }
 
 model StockMovement {
@@ -136,8 +189,8 @@ model StockMovement {
   unitPrice   Decimal?     @db.Decimal(12, 2)
   reference   String?
   notes       String?
-  createdById String?
-  createdBy   User?        @relation(fields: [createdById], references: [id])
+  createdById String
+  createdBy   User         @relation(fields: [createdById], references: [id])
   createdAt   DateTime     @default(now())
 
   @@index([productId])
@@ -146,20 +199,30 @@ model StockMovement {
 }
 
 model Purchase {
-  id           String         @id @default(cuid())
-  reference    String         @unique
-  supplierId   String?
-  supplier     Supplier?      @relation(fields: [supplierId], references: [id])
-  status       PurchaseStatus @default(PENDING)
-  totalAmount  Decimal        @default(0) @db.Decimal(12, 2)
-  notes        String?
-  purchasedAt  DateTime       @default(now())
-  items        PurchaseItem[]
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id            String         @id @default(cuid())
+  reference     String         @unique
+  supplierId    String?
+  supplier      Supplier?      @relation(fields: [supplierId], references: [id])
+  status        PurchaseStatus @default(PENDING)
+  totalAmount   Decimal        @default(0) @db.Decimal(12, 2)
+  notes         String?
+  purchasedAt   DateTime       @default(now())
+  items         PurchaseItem[]
+  createdById   String
+  createdBy     User           @relation("PurchaseCreatedBy", fields: [createdById], references: [id])
+  updatedById   String?
+  updatedBy     User?          @relation("PurchaseUpdatedBy", fields: [updatedById], references: [id])
+  receivedById  String?
+  receivedBy    User?          @relation("PurchaseReceivedBy", fields: [receivedById], references: [id])
+  cancelledById String?
+  cancelledBy   User?          @relation("PurchaseCancelledBy", fields: [cancelledById], references: [id])
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   @@index([supplierId])
   @@index([status])
+  @@index([createdById])
+  @@index([receivedById])
 }
 
 model PurchaseItem {
@@ -192,7 +255,7 @@ model Invoice {
   notes          String?
   issuedAt       DateTime      @default(now())
   issuedById     String
-  issuedBy       User          @relation(fields: [issuedById], references: [id])
+  issuedBy       User          @relation("InvoiceIssuer", fields: [issuedById], references: [id])
   items          InvoiceItem[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -227,8 +290,29 @@ model AccountEntry {
   reference   String?
   description String?
   recordedAt  DateTime         @default(now())
+  createdById String
+  createdBy   User             @relation(fields: [createdById], references: [id])
   createdAt   DateTime         @default(now())
 
   @@index([recordedAt])
   @@index([type])
+  @@index([createdById])
+}
+
+/// Journal d'activite pour tracabilite ulterieure (qui / quoi / quand).
+model AuditLog {
+  id         String      @id @default(cuid())
+  action     AuditAction
+  entityType String
+  entityId   String?
+  summary    String
+  metadata   Json?
+  userId     String
+  user       User        @relation(fields: [userId], references: [id])
+  createdAt  DateTime    @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([action])
 }

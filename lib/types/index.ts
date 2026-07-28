@@ -6,6 +6,17 @@ export type PurchaseStatus = "PENDING" | "RECEIVED" | "CANCELLED";
 
 export type PaymentMethod = "CASH" | "MOBILE_MONEY";
 
+export type AuditAction =
+  | "CREATE"
+  | "UPDATE"
+  | "DELETE"
+  | "RECEIVE"
+  | "CANCEL"
+  | "SALE"
+  | "ADJUST"
+  | "LOGIN"
+  | "OTHER";
+
 export type User = {
   id: string;
   email: string;
@@ -35,6 +46,10 @@ export type Category = {
   /** Niveaux de gros derives de l'unite de base. */
   packLevels: PackLevelTemplate[];
   isActive: boolean;
+  createdById: string;
+  createdByName: string;
+  updatedById?: string;
+  updatedByName?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -47,6 +62,10 @@ export type Supplier = {
   address?: string;
   notes?: string;
   isActive: boolean;
+  createdById: string;
+  createdByName: string;
+  updatedById?: string;
+  updatedByName?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -66,6 +85,10 @@ export type ProductSupplierOffer = {
   /** Cout revient par unite de base. */
   costPerBaseUnit: number;
   lastPurchaseAt: Date;
+  createdById: string;
+  createdByName: string;
+  updatedById?: string;
+  updatedByName?: string;
 };
 
 export type Product = {
@@ -88,6 +111,10 @@ export type Product = {
   categoryId: string;
   /** Fournisseur preferentiel optionnel. */
   supplierId?: string;
+  createdById: string;
+  createdByName: string;
+  updatedById?: string;
+  updatedByName?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -101,7 +128,8 @@ export type StockMovement = {
   unitPrice?: number;
   reference?: string;
   notes?: string;
-  createdById?: string;
+  createdById: string;
+  createdByName: string;
   createdAt: Date;
 };
 
@@ -129,6 +157,14 @@ export type Purchase = {
   notes?: string;
   purchasedAt: Date;
   items: PurchaseItem[];
+  createdById: string;
+  createdByName: string;
+  updatedById?: string;
+  updatedByName?: string;
+  receivedById?: string;
+  receivedByName?: string;
+  cancelledById?: string;
+  cancelledByName?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -165,6 +201,18 @@ export type Invoice = {
   items: InvoiceItem[];
   createdAt: Date;
   updatedAt: Date;
+};
+
+export type AuditLog = {
+  id: string;
+  action: AuditAction;
+  entityType: string;
+  entityId?: string;
+  summary: string;
+  metadata?: Record<string, unknown>;
+  userId: string;
+  userName: string;
+  createdAt: Date;
 };
 
 export type DashboardStats = {

@@ -1,36 +1,124 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Biz Cash Flow
 
-## Getting Started
+Application de **caisse (POS)**, **inventaire** et **comptabilite legere** pour commerces de detail (telephonie, accessoires, cigarettes, bieres, etc.).
 
-First, run the development server:
+Stack : **Next.js 16**, **React 19**, **Tailwind CSS 4**, **Prisma**, **PostgreSQL**.
+
+---
+
+## Fonctionnalites actuelles
+
+- **Categories** avec unite de base et conditionnements multi-niveaux (paquet / cartouche / carton, bouteille / casiers…)
+- **Produits** : SKU, code-barres unique, prix d’achat / vente, packs, seuil de stock
+- **Achats** : fournisseur optionnel, creation produit + categorie inline, reception de stock
+- **Offres fournisseurs** : comparaison des couts unitaires
+- **Ventes POS** : panier, especes / mobile money, facture
+- **Mouvements de stock** : entrees, sorties, ajustements
+- **Comptabilite du jour** : CA, marge estimee, gains/produit, alertes, impression
+- **Tracabilite utilisateur** : chaque operation est liee a un utilisateur (`AuditLog` + champs `createdBy` / `updatedBy`)
+
+En developpement, une partie des donnees tourne encore sur un **store mock** en memoire ; le schema Prisma / Postgres est la cible de production.
+
+---
+
+## Demarrage rapide
+
+### 1. Dependances
+
+```bash
+npm install
+```
+
+### 2. Base de donnees (Docker)
+
+```bash
+cd setup
+cp .env.example .env
+# Editez setup/.env puis :
+docker compose up -d
+cd ..
+```
+
+PostgreSQL ecoute sur `localhost:5432`.
+
+### 3. Schema Prisma
+
+A la racine, assurez-vous que `DATABASE_URL` pointe vers la BD locale, puis :
+
+```bash
+npm run db:push
+npm run db:generate
+```
+
+### 4. App
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ouvrir [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Production complete (app + BD)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+cd setup
+docker compose --profile prod up --build -d
+```
 
-## Learn More
+Details : [`setup/README.Docker.md`](setup/README.Docker.md).
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Structure utile
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Chemin | Role |
+|--------|------|
+| `app/(dashboard)/` | Pages (ventes, produits, achats, compta…) |
+| `components/` | UI metier (POS, CRUD, dialogs) |
+| `lib/repositories/` | Acces donnees (mock pour l’instant) |
+| `lib/sales/` | Logique panier, pricing, packs |
+| `lib/mock/store.ts` | Seed & store memoire |
+| `prisma/schema.prisma` | Modele de donnees |
+| `docs/ROADMAP.md` | Analyse, roadmap, wishlist |
+| `docker/GUIDE-UTILISATION.md` | Guide pages / champs / parcours |
+| `setup/` | Docker Compose, Dockerfile, env |
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Scripts npm
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Serveur de developpement |
+| `npm run build` | Prisma generate + build Next |
+| `npm run start` | Serveur production |
+| `npm run lint` | ESLint |
+| `npm run db:push` | Pousse le schema vers Postgres |
+| `npm run db:migrate` | Migrations Prisma |
+| `npm run db:studio` | UI Prisma Studio |
+
+---
+
+## Parcours metier minimal
+
+1. Creer une **categorie** (unite de base + packs)  
+2. Creer un **achat** → **nouveau produit** (categorie obligatoire, fournisseur optionnel)  
+3. **Recevoir** l’achat → stock alimente  
+4. Vendre dans **Ventes**  
+5. Consulter **Comptabilite** (compte du jour)
+
+Guide detaille : [`docker/GUIDE-UTILISATION.md`](docker/GUIDE-UTILISATION.md).  
+Roadmap complete : [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+---
+
+## Tracabilite
+
+Toute operation sensible enregistre l’utilisateur courant (stub auth : `lib/auth/current-user.ts`, a remplacer par une vraie session).  
+Voir le modele `AuditLog` et les relations `User` dans `prisma/schema.prisma`.
+
+---
+
+## Licence
+
+Projet prive — KOBE Corporation.
