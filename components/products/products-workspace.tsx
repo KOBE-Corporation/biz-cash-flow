@@ -227,9 +227,24 @@ export function ProductsWorkspace() {
     if (!list.editing || !form) return;
     const salePrice = Number(form.salePrice) || 0;
     const purchasePrice = Number(form.purchasePrice) || 0;
+    if (isSalePriceBelowCost(salePrice, purchasePrice)) {
+      setError(
+        `Prix de vente (${salePrice} F) sous le cout revient (${purchasePrice} F). Vente catalogue a perte interdite.`,
+      );
+      return;
+    }
     const packLevels = form.packLevels.map((level) =>
       level.unitsOfBase === 1 ? { ...level, salePrice } : level,
     );
+    for (const level of packLevels) {
+      const minPack = purchasePrice * level.unitsOfBase;
+      if (purchasePrice > 0 && level.salePrice < minPack) {
+        setError(
+          `Prix pack « ${level.name} » (${level.salePrice} F) sous le plancher (${minPack} F).`,
+        );
+        return;
+      }
+    }
     const result = updateProduct(list.editing.id, {
       name: form.name,
       sku: form.sku,
@@ -752,8 +767,8 @@ export function ProductsWorkspace() {
                 <p className="text-[11px] text-muted-foreground">
                   Suggestion min : {formatCurrency(suggestBaseSalePrice(cost))}
                   {isSalePriceBelowCost(sale, cost)
-                    ? " — sous le cout !"
-                    : ""}
+                    ? " — sous le cout (bloque a l'enregistrement) !"
+                    : " — plancher = cout revient"}
                 </p>
               </div>
               <div className="space-y-1.5 sm:col-span-2">

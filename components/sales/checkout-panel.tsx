@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { CircleEqual, Wallet } from "lucide-react";
 import type { CartLine, PaymentMethod } from "@/lib/types";
 import type { DiscountMode } from "@/lib/sales/cart";
@@ -8,6 +9,11 @@ import {
   getCartTotal,
   resolveDiscountAmount,
 } from "@/lib/sales/cart";
+import { getProduct } from "@/lib/repositories/products";
+import {
+  analyzeCartPricing,
+  formatBelowCostError,
+} from "@/lib/sales/pricing-guard";
 import { Chip } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -73,6 +79,20 @@ export function CheckoutPanel({
   const isEmpty = lines.length === 0;
   const isCash = paymentMethod === "CASH";
   const isCredit = paymentMethod === "CREDIT";
+
+  const pricing = useMemo(
+    () =>
+      analyzeCartPricing(
+        lines,
+        (line) => getProduct(line.productId)?.purchasePrice ?? 0,
+        discount,
+        discountMode,
+      ),
+    [lines, discount, discountMode],
+  );
+  const belowCostError = pricing.ok
+    ? null
+    : formatBelowCostError(pricing.breaches);
 
   return (
     <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card">
@@ -210,11 +230,32 @@ export function CheckoutPanel({
             max={discountMode === "percent" ? 100 : undefined}
             value={discount || ""}
             placeholder="0"
-            className="h-8 text-xs"
+            className={cn(
+              "h-8 text-xs",
+              belowCostError && "border-destructive focus-visible:ring-destructive/40",
+            )}
             onChange={(event) =>
               onDiscountChange(Math.max(0, Number(event.target.value) || 0))
             }
           />
+          {belowCostError ? (
+            <p className="rounded-lg bg-destructive/10 px-2.5 py-2 text-[11px] leading-snug text-destructive">
+              {belowCostError}
+            </p>
+          ) : discountAmount > 0 ? (
+            <p className="text-[10px] text-muted-foreground">
+              Remise OK — marge estimee{" "}
+              <span className="font-medium text-foreground">
+                {formatCurrency(pricing.realizedGain)}
+              </span>{" "}
+              (plancher = cout revient)
+            </p>
+          ) : (
+            <p className="text-[10px] text-muted-foreground">
+              Plancher vente = cout revient. Toute vente a perte est bloquee et
+              tracee.
+            </p>
+          )}
         </div>
 
         <div className="space-y-1">
@@ -263,6 +304,25 @@ export function CheckoutPanel({
             <span>Remise</span>
             <span className="truncate tabular-nums">
               - {formatCurrency(discountAmount)}
+            </span>
+          </div>
+          <div className="flex justify-between gap-2 text-muted-foreground">
+            <span>Cout fige</span>
+            <span className="truncate tabular-nums">
+              {formatCurrency(pricing.totalCost)}
+            </span>
+          </div>
+          <div
+            className={cn(
+              "flex justify-between gap-2",
+              pricing.realizedGain < 0
+                ? "font-medium text-destructive"
+                : "text-muted-foreground",
+            )}
+          >
+            <span>Marge</span>
+            <span className="truncate tabular-nums">
+              {formatCurrency(pricing.realizedGain)}
             </span>
           </div>
           <div className="flex justify-between gap-2 font-bold text-foreground">

@@ -32,6 +32,9 @@ const actionLabels: Record<AuditAction, string> = {
   LOGIN: "Connexion",
   OPEN_SESSION: "Ouverture caisse",
   CLOSE_SESSION: "Cloture caisse",
+  PRICE_CHANGE: "Prix",
+  DISCOUNT: "Remise",
+  BELOW_COST: "Vente a perte",
   OTHER: "Autre",
 };
 
@@ -44,8 +47,11 @@ const actionVariant: Partial<
   OPEN_SESSION: "success",
   CANCEL: "danger",
   DELETE: "danger",
+  BELOW_COST: "danger",
   CLOSE_SESSION: "warning",
   ADJUST: "warning",
+  PRICE_CHANGE: "warning",
+  DISCOUNT: "warning",
   UPDATE: "outline",
 };
 
@@ -312,6 +318,9 @@ export function AuditWorkspace() {
             {(
               [
                 "SALE",
+                "DISCOUNT",
+                "PRICE_CHANGE",
+                "BELOW_COST",
                 "RECEIVE",
                 "CREATE",
                 "UPDATE",

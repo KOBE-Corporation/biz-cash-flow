@@ -631,14 +631,7 @@ export function addInvoice(
     });
   }
 
-  recordAudit({
-    action: "SALE",
-    entityType: "Invoice",
-    entityId: full.id,
-    summary: isCredit
-      ? `Vente a credit : ${full.number} (${full.totalAmount})`
-      : `Vente enregistree : ${full.number} (${full.totalAmount})`,
-  });
+  // Audit SALE detaille : lib/repositories/sales.createSale
 
   return full;
 }

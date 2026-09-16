@@ -13,6 +13,11 @@ import {
   paymentMethodShortcuts,
 } from "@/lib/sales/cart";
 import { createSale } from "@/lib/repositories/sales";
+import { getProduct } from "@/lib/repositories/products";
+import {
+  analyzeCartPricing,
+  formatBelowCostError,
+} from "@/lib/sales/pricing-guard";
 import { CURRENT_USER } from "@/lib/auth/current-user";
 import { isTypingTarget } from "@/lib/sales/shortcuts";
 import { openSalesShortcutsHelp } from "@/lib/sales/events";
@@ -118,6 +123,21 @@ export function useSaleWorkspace() {
     if (state.lines.length === 0) {
       dispatch({ type: "TOAST", message: "Ajoutez un article d'abord", tone: "error" });
       searchRef.current?.focus();
+      return;
+    }
+
+    const pricing = analyzeCartPricing(
+      state.lines,
+      (line) => getProduct(line.productId)?.purchasePrice ?? 0,
+      state.discount,
+      state.discountMode,
+    );
+    if (!pricing.ok) {
+      dispatch({
+        type: "TOAST",
+        message: formatBelowCostError(pricing.breaches),
+        tone: "error",
+      });
       return;
     }
 

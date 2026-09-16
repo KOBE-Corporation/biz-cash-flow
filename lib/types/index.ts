@@ -65,6 +65,9 @@ export type AuditAction =
   | "LOGIN"
   | "OPEN_SESSION"
   | "CLOSE_SESSION"
+  | "PRICE_CHANGE"
+  | "DISCOUNT"
+  | "BELOW_COST"
   | "OTHER";
 
 export type User = {
@@ -307,8 +310,16 @@ export type Invoice = {
   paymentMethod: PaymentMethod;
   subtotal: number;
   discountAmount: number;
+  /** Mode de remise saisi en caisse (montant F ou %). */
+  discountMode?: "amount" | "percent";
+  /** Valeur saisie (ex. 10 pour 10 %, ou 500 F). */
+  discountValue?: number;
   taxAmount: number;
   totalAmount: number;
+  /** Cout total fige a la vente (somme unitCost × unites). */
+  totalCostAmount?: number;
+  /** Marge realisee au moment de la vente (total − cout). */
+  realizedGainAmount?: number;
   /** Montant deja encaisse (0 si a credit). */
   amountPaid: number;
   /** Cumul des notes de credit. */

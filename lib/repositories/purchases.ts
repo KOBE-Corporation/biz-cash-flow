@@ -9,7 +9,7 @@ import { createMovement } from "@/lib/repositories/movements";
 import { upsertSupplierOffer } from "@/lib/repositories/offers";
 import { getProduct } from "@/lib/repositories/products";
 import { getSupplier } from "@/lib/repositories/suppliers";
-import { costPerBaseUnit } from "@/lib/sales/pricing";
+import { costPerBaseUnit, isSalePriceBelowCost } from "@/lib/sales/pricing";
 import type {
   Purchase,
   PurchaseItem,
@@ -282,11 +282,53 @@ export function setPurchaseStatus(
 
       const updatedProduct = getProduct(item.productId);
       if (updatedProduct) {
+        const previousCost = updatedProduct.purchasePrice;
         updatedProduct.purchasePrice = cost;
         applyLotToProduct(updatedProduct, item, stockBefore);
         updatedProduct.updatedById = actor.id;
         updatedProduct.updatedByName = actor.name;
         updatedProduct.updatedAt = touch();
+
+        if (previousCost !== cost) {
+          recordAudit({
+            action: "PRICE_CHANGE",
+            entityType: "Product",
+            entityId: updatedProduct.id,
+            summary: `Cout maj a la reception : ${updatedProduct.name} (${previousCost}→${cost}) — ${actor.name}`,
+            metadata: {
+              source: "purchase-receive",
+              purchaseId: current.id,
+              purchaseReference: current.reference,
+              cashierId: actor.id,
+              cashierName: actor.name,
+              before: { purchasePrice: previousCost },
+              after: { purchasePrice: cost },
+              salePrice: updatedProduct.salePrice,
+              catalogBelowCost: isSalePriceBelowCost(
+                updatedProduct.salePrice,
+                cost,
+              ),
+            },
+          });
+          if (isSalePriceBelowCost(updatedProduct.salePrice, cost)) {
+            recordAudit({
+              action: "BELOW_COST",
+              entityType: "Product",
+              entityId: updatedProduct.id,
+              summary: `Cout reception > prix vente : ${updatedProduct.name} — corriger le prix — ${actor.name}`,
+              metadata: {
+                blocked: false,
+                catalogBelowCost: true,
+                source: "purchase-receive",
+                purchaseId: current.id,
+                cashierId: actor.id,
+                cashierName: actor.name,
+                purchasePrice: cost,
+                salePrice: updatedProduct.salePrice,
+              },
+            });
+          }
+        }
       }
 
       if (current.supplierId && current.supplierName) {

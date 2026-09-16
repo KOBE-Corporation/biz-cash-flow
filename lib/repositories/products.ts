@@ -5,6 +5,11 @@ import {
   generateBarcode,
   templatesToProductPrices,
 } from "@/lib/sales/pricing";
+import {
+  analyzeCatalogPricing,
+  formatCatalogBelowCostError,
+  productPricingDiff,
+} from "@/lib/sales/pricing-guard";
 import type { Product, ProductPackPrice, RepoResult } from "@/lib/types";
 
 export type ProductInput = {
@@ -83,6 +88,36 @@ export function createProduct(input: ProductInput): RepoResult<Product> {
       ? input.packLevels
       : templatesToProductPrices(category.packLevels, input.purchasePrice);
 
+  const salePrice = Math.max(
+    0,
+    input.salePrice || packLevels[0]?.salePrice || 0,
+  );
+  const purchasePrice = Math.max(0, input.purchasePrice);
+  const catalogCheck = analyzeCatalogPricing(
+    salePrice,
+    purchasePrice,
+    packLevels,
+  );
+  if (!catalogCheck.ok) {
+    recordAudit({
+      action: "BELOW_COST",
+      entityType: "Product",
+      summary: `Creation produit a perte bloquee : ${name} — ${actor.name}`,
+      metadata: {
+        blocked: true,
+        cashierId: actor.id,
+        cashierName: actor.name,
+        breaches: catalogCheck.breaches,
+        purchasePrice,
+        salePrice,
+      },
+    });
+    return {
+      ok: false,
+      error: formatCatalogBelowCostError(name, catalogCheck.breaches),
+    };
+  }
+
   const now = touch();
   const product: Product = {
     id: createId("p"),
@@ -92,8 +127,8 @@ export function createProduct(input: ProductInput): RepoResult<Product> {
     description: input.description?.trim() || undefined,
     quantity: Math.max(0, input.quantity ?? 0),
     minStock: Math.max(0, input.minStock ?? 0),
-    purchasePrice: Math.max(0, input.purchasePrice),
-    salePrice: Math.max(0, input.salePrice || packLevels[0]?.salePrice || 0),
+    purchasePrice,
+    salePrice,
     baseUnitName,
     packLevels,
     isActive: input.isActive ?? true,
@@ -114,6 +149,12 @@ export function createProduct(input: ProductInput): RepoResult<Product> {
     entityType: "Product",
     entityId: product.id,
     summary: `Produit cree : ${product.name} (${product.sku})`,
+    metadata: {
+      cashierId: actor.id,
+      cashierName: actor.name,
+      purchasePrice: product.purchasePrice,
+      salePrice: product.salePrice,
+    },
   });
   return { ok: true, data: product };
 }
@@ -208,12 +249,93 @@ export function updateProduct(
     updatedByName: actor.name,
     updatedAt: touch(),
   };
+
+  const diff = productPricingDiff(current, updated);
+  const catalogCheck = analyzeCatalogPricing(
+    updated.salePrice,
+    updated.purchasePrice,
+    updated.packLevels,
+  );
+
+  const saleSideTouched = diff.saleChanged || diff.packsChanged;
+  // Prix vente / packs sous cout : interdit.
+  // Exception : hausse du seul cout d'achat (reception / correction) —
+  // autorisee mais tracee ; la caisse bloquera toute vente a perte.
+  if (!catalogCheck.ok && saleSideTouched) {
+    recordAudit({
+      action: "BELOW_COST",
+      entityType: "Product",
+      entityId: id,
+      summary: `Tentative prix catalogue a perte bloquee : ${updated.name} — ${actor.name}`,
+      metadata: {
+        blocked: true,
+        cashierId: actor.id,
+        cashierName: actor.name,
+        breaches: catalogCheck.breaches,
+        ...diff,
+      },
+    });
+    return {
+      ok: false,
+      error: formatCatalogBelowCostError(updated.name, catalogCheck.breaches),
+    };
+  }
+
   store.products[index] = updated;
+
+  if (diff.anyPriceChange) {
+    const parts: string[] = [];
+    if (diff.purchaseChanged) {
+      parts.push(
+        `cout ${diff.before.purchasePrice}→${diff.after.purchasePrice}`,
+      );
+    }
+    if (diff.saleChanged) {
+      parts.push(`vente ${diff.before.salePrice}→${diff.after.salePrice}`);
+    }
+    if (diff.packsChanged) parts.push("packs");
+    recordAudit({
+      action: "PRICE_CHANGE",
+      entityType: "Product",
+      entityId: updated.id,
+      summary: `Prix modifies : ${updated.name} (${parts.join(", ")}) — ${actor.name}`,
+      metadata: {
+        cashierId: actor.id,
+        cashierName: actor.name,
+        catalogBelowCost: !catalogCheck.ok,
+        ...diff,
+      },
+    });
+  }
+
+  if (!catalogCheck.ok && diff.purchaseChanged && !saleSideTouched) {
+    recordAudit({
+      action: "BELOW_COST",
+      entityType: "Product",
+      entityId: updated.id,
+      summary: `Cout > prix vente apres maj cout : ${updated.name} — corriger le prix vente — ${actor.name}`,
+      metadata: {
+        blocked: false,
+        catalogBelowCost: true,
+        cashierId: actor.id,
+        cashierName: actor.name,
+        breaches: catalogCheck.breaches,
+        ...diff,
+      },
+    });
+  }
+
   recordAudit({
     action: "UPDATE",
     entityType: "Product",
     entityId: updated.id,
     summary: `Produit mis a jour : ${updated.name}`,
+    metadata: {
+      priceChange: diff.anyPriceChange,
+      catalogBelowCost: !catalogCheck.ok,
+      cashierId: actor.id,
+      cashierName: actor.name,
+    },
   });
   return { ok: true, data: updated };
 }
