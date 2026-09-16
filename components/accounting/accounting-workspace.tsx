@@ -53,7 +53,7 @@ function formatDayLabel(date: Date) {
 }
 
 export function AccountingWorkspace() {
-  const { version, mounted } = useBcfRefresh();
+  const { version, mounted, bump } = useBcfRefresh();
 
   const data = useMemo(() => {
     if (!mounted) return null;
@@ -91,7 +91,7 @@ export function AccountingWorkspace() {
         description="Journal de caisse du jour : entrees, sorties, gains/pertes et tracabilite utilisateur."
         actions={
           <div className="flex flex-wrap gap-2 print:hidden">
-            <Button variant="outline" onClick={() => setTick((v) => v + 1)}>
+            <Button variant="outline" onClick={bump}>
               Actualiser
             </Button>
             <Button variant="success" onClick={handlePrint}>

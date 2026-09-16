@@ -28,24 +28,30 @@ Roadmap produit : [`ROADMAP.md`](./ROADMAP.md).
 
 ### Tableau de bord `/`
 
-Vue synthetique : stock, alertes, indicateurs. Point d’entree apres connexion.
+Vue synthetique live : CA du jour, solde caisse, impayees, stock, peremption, factures et mouvements recents.
 
 ### Ventes `/sales`
 
-Caisse POS : choisir un produit, panier, paiement especes ou mobile money, validation facture.
+Caisse POS : choisir un produit, panier, paiement especes / mobile money / **a credit**, validation facture.
 
 | Zone / champ | Role |
 |--------------|------|
 | Grille produits | Selection rapide |
 | Panier | Lignes, quantites, total |
-| Moyen de paiement | `CASH` ou `MOBILE_MONEY` |
+| Moyen de paiement | `CASH`, `MOBILE_MONEY` ou `CREDIT` (Ctrl+1..3) |
 | Montant recu | Especes : calcule la monnaie |
+| Client | Obligatoire si credit ; telephone optionnel pour relance |
 | Remise | Montant ou % |
 | Notes | Optionnel sur la facture |
 
-> Prochaine evolution : choisir le **niveau de pack** (paquet / cartouche / casier) et scan code-barres.
+> Credit : stock sorti, aucun encaissement. Suivi dans **Factures → Impayees**.
 
-### Produits `/produits` (ou route equivalente)
+### Factures `/factures`
+
+Liste des ventes : filtres Payees / Impayees / Annulees / periode / caissier.
+Actions : encaisser un solde, relancer (WhatsApp), avoir partiel, annuler (motif obligatoire), partager (PDF / WhatsApp / email).
+
+### Produits `/produits`
 
 Catalogue. Le **stock ne se cree pas ici** : il arrive via un **achat receptionne**.
 

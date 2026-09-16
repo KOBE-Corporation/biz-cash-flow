@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { DataTable, type DataColumn } from "@/components/crud/data-table";
 import { FormDialog } from "@/components/crud/form-dialog";
@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { PageHeader, StatCard } from "@/components/ui/page-header";
 import { ToastViewport, useToast } from "@/components/ui/toast";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
+import { useBcfRefresh } from "@/hooks/use-bcf-refresh";
 import { useEntityList } from "@/hooks/use-entity-list";
 import {
   formatDateInput,
@@ -63,18 +64,51 @@ function stockTone(product: Product) {
   return "ok" as const;
 }
 
+function parseStockFilter(raw: string | null): StockFilter {
+  if (raw === "low" || raw === "out" || raw === "ok" || raw === "expiring") {
+    return raw;
+  }
+  if (raw === "low-stock") return "low";
+  return "all";
+}
+
 export function ProductsWorkspace() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { confirm, dialog } = useConfirmDialog();
   const { toast, showToast } = useToast();
-  const [version, setVersion] = useState(0);
-  const [stockFilter, setStockFilter] = useState<StockFilter>("all");
+  const { version, bump } = useBcfRefresh();
+  const [stockFilter, setStockFilter] = useState<StockFilter>(() =>
+    parseStockFilter(searchParams.get("filter")),
+  );
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [form, setForm] = useState<ProductFormState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const categories = useMemo(() => listCategories(), [version]);
-  const suppliers = useMemo(() => listSuppliers(), [version]);
+  useEffect(() => {
+    setStockFilter(parseStockFilter(searchParams.get("filter")));
+  }, [searchParams]);
+
+  const applyStockFilter = (value: StockFilter) => {
+    setStockFilter((prev) => {
+      const next = prev === value && value !== "all" ? "all" : value;
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === "all") params.delete("filter");
+      else params.set("filter", next);
+      const qs = params.toString();
+      router.replace(qs ? `/produits?${qs}` : "/produits", { scroll: false });
+      return next;
+    });
+  };
+
+  const categories = useMemo(() => {
+    void version;
+    return listCategories();
+  }, [version]);
+  const suppliers = useMemo(() => {
+    void version;
+    return listSuppliers();
+  }, [version]);
   const items = useMemo(() => {
     void version;
     return listProducts();
@@ -187,7 +221,7 @@ export function ProductsWorkspace() {
     }
     list.closeForm();
     setForm(null);
-    setVersion((v) => v + 1);
+    bump();
     showToast("Produit mis a jour", "success");
   };
 
@@ -204,7 +238,7 @@ export function ProductsWorkspace() {
       showToast(result.error, "error");
       return;
     }
-    setVersion((v) => v + 1);
+    bump();
     showToast(`« ${item.name} » supprime`, "success");
   };
 
@@ -365,7 +399,7 @@ export function ProductsWorkspace() {
           value={items.length}
           subtitle="Tous"
           active={stockFilter === "all"}
-          onClick={() => setStockFilter("all")}
+          onClick={() => applyStockFilter("all")}
         />
         <StatCard
           title="Stock faible"
@@ -373,9 +407,7 @@ export function ProductsWorkspace() {
           variant="warning"
           subtitle="Cliquer pour filtrer"
           active={stockFilter === "low"}
-          onClick={() =>
-            setStockFilter((prev) => (prev === "low" ? "all" : "low"))
-          }
+          onClick={() => applyStockFilter("low")}
         />
         <StatCard
           title="Rupture"
@@ -383,9 +415,7 @@ export function ProductsWorkspace() {
           variant="danger"
           subtitle="Cliquer pour filtrer"
           active={stockFilter === "out"}
-          onClick={() =>
-            setStockFilter((prev) => (prev === "out" ? "all" : "out"))
-          }
+          onClick={() => applyStockFilter("out")}
         />
         <StatCard
           title="Peremption"
@@ -393,11 +423,7 @@ export function ProductsWorkspace() {
           variant={expiringCount > 0 ? "warning" : "success"}
           subtitle="Cliquer pour filtrer"
           active={stockFilter === "expiring"}
-          onClick={() =>
-            setStockFilter((prev) =>
-              prev === "expiring" ? "all" : "expiring",
-            )
-          }
+          onClick={() => applyStockFilter("expiring")}
         />
       </div>
 
@@ -413,7 +439,7 @@ export function ProductsWorkspace() {
               <Chip
                 key={value}
                 active={stockFilter === value}
-                onClick={() => setStockFilter(value)}
+                onClick={() => applyStockFilter(value)}
                 className="px-2.5 py-1 text-xs"
               >
                 {value === "all"

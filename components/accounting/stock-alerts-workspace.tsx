@@ -7,6 +7,7 @@ import { DataTable, type DataColumn } from "@/components/crud/data-table";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { PageHeader, StatCard } from "@/components/ui/page-header";
+import { useBcfRefresh } from "@/hooks/use-bcf-refresh";
 import {
   formatDisplayDate,
   type ExpiryAlertRow,
@@ -23,13 +24,19 @@ function stockTone(product: Product) {
 }
 
 export function StockAlertsWorkspace() {
+  const { version } = useBcfRefresh();
+
   const stockAlerts = useMemo(() => {
+    void version;
     return listProducts()
       .filter((p) => p.isActive && stockTone(p) !== "ok")
       .sort((a, b) => a.quantity - b.quantity);
-  }, []);
+  }, [version]);
 
-  const expiryAlerts = useMemo(() => listExpiryAlerts(), []);
+  const expiryAlerts = useMemo(() => {
+    void version;
+    return listExpiryAlerts();
+  }, [version]);
 
   const outCount = stockAlerts.filter((p) => stockTone(p) === "out").length;
   const lowCount = stockAlerts.filter((p) => stockTone(p) === "low").length;

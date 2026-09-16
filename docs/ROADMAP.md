@@ -1,7 +1,7 @@
 # Biz Cash Flow — Roadmap & analyse produit
 
 Document de reference pour la vision metier, l’etat actuel et le plan d’implementation.
-Derniere mise a jour : 16 septembre 2026.
+Derniere mise a jour : 16 septembre 2026 (dashboard live + sync factures/caisse + nav unifiee).
 
 ---
 
@@ -13,8 +13,8 @@ Objectif : permettre a un vendeur de :
 
 1. Definir des **categories avec conditionnements multi-niveaux**
 2. **Acheter** (avec ou sans fournisseur) et receptionner du stock
-3. **Vendre** rapidement en caisse (especes / mobile money)
-4. Suivre **marges, alertes stock, comparaison fournisseurs**
+3. **Vendre** rapidement en caisse (especes / mobile money / **a credit**)
+4. Suivre **marges, alertes stock, factures impayees, caisse du jour**
 5. Garder une **tracabilite utilisateur** sur chaque operation
 
 ---
@@ -57,17 +57,20 @@ Achat frequent en casier ; revente a l’unite ou au casier.
 
 | Module              | Statut | Notes |
 |---------------------|--------|--------|
-| Categories + packs  | OK     | Unite de base + niveaux |
-| Produits            | OK     | Barcode, packs, offres |
+| Categories + packs  | OK     | Unite de base + niveaux + tracking |
+| Produits            | OK     | Barcode, packs, filtres stock URL |
 | Fournisseurs        | OK     | CRUD |
-| Achats              | OK     | Fournisseur optionnel, reception stock |
+| Achats              | OK     | Fournisseur optionnel, reception stock, lots |
 | Mouvements stock    | OK     | IN / OUT / ADJUSTMENT |
-| Ventes (POS)        | Partiel| Vente unite de base ; packs a brancher |
-| Factures            | OK     | Liste / detail |
-| Comptabilite jour   | OK     | Marges estimees, alertes, comparaison |
+| Ventes (POS)        | OK     | Especes / MoMo / **a credit** ; packs partiels |
+| Factures            | OK     | Credit, encaissement, avoir, annulation, partage |
+| Comptabilite jour   | OK     | Caisse, marges, alertes, entrees/sorties |
+| Tableau de bord     | OK     | CA jour, solde, impayees, stock, sync live |
+| Navigation          | OK     | Exploitation + Finance, labels FR unifies |
+| Sync mock client    | OK     | Evenements `bcf:*` + `useBcfRefresh` |
 | Auth multi-users    | Stub   | `CURRENT_USER` — a remplacer |
-| Audit trail         | En cours | `AuditLog` + champs `createdBy` |
-| Scan hardware       | Prevue | Logique barcode presente |
+| Audit trail         | OK     | `AuditLog` + champs `createdBy` (UI journal a faire) |
+| Scan hardware       | Partiel| Champ scan caisse present |
 | Docker BD / prod    | OK     | Dossier `setup/` |
 
 ---
@@ -109,9 +112,13 @@ Achat frequent en casier ; revente a l’unite ou au casier.
 - [x] Motif obligatoire a l'annulation de facture
 - [x] Partage facture (impression/PDF, WhatsApp, email)
 - [x] Filtres factures : caissier + periode + impayees
+- [x] Tableau de bord live (CA, caisse, impayees, stock, peremption)
+- [x] Sync cross-pages (ventes ↔ factures ↔ compta ↔ dashboard)
+- [x] Navigation unifiee (Factures dans Exploitation, labels FR)
 - [ ] Sessions de caisse (ouverture / fermeture / ecart)
 - [ ] Compte de caisse du jour imprimable (PDF)
-- [ ] Alertes stock sur dashboard + badge nav
+- [x] Alertes stock sur dashboard (+ liens filtres produits)
+- [ ] Badge nav compteurs (impayees / stock faible)
 - [ ] Historique prix de vente (qui a change quoi)
 - [ ] Panier suspendu / reprise (hold & recall multi-tickets)
 - [ ] Favoris / raccourcis produits en grille caisse

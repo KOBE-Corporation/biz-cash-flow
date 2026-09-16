@@ -137,14 +137,14 @@ export function AppSidebar() {
 
         <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-2 py-4">
           <NavSection
-            title="Menu"
+            title="Exploitation"
             items={mainNavigation}
             collapsed={collapsed}
             isActive={isActive}
             onNavigate={closeMobile}
           />
           <NavSection
-            title="Gestion"
+            title="Finance"
             items={secondaryNavigation}
             collapsed={collapsed}
             isActive={isActive}
