@@ -1,5 +1,6 @@
 import { createId, getStore, touch } from "@/lib/mock/store";
 import { getActor, recordAudit } from "@/lib/repositories/audit";
+import { postPurchaseCash } from "@/lib/repositories/cash-ledger";
 import { createMovement } from "@/lib/repositories/movements";
 import { upsertSupplierOffer } from "@/lib/repositories/offers";
 import { getProduct } from "@/lib/repositories/products";
@@ -221,6 +222,14 @@ export function setPurchaseStatus(
         });
       }
     }
+
+    const cash = postPurchaseCash({
+      purchaseId: current.id,
+      reference: current.reference,
+      amount: current.totalAmount,
+      supplierName: current.supplierName,
+    });
+    if (!cash.ok) return cash;
   }
 
   if (status === "CANCELLED" && current.status === "RECEIVED") {

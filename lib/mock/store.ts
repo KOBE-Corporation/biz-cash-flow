@@ -2,6 +2,7 @@ import { CURRENT_USER } from "@/lib/auth/current-user";
 import { generateBarcode } from "@/lib/sales/pricing";
 import type {
   AuditLog,
+  CashLedgerEntry,
   Category,
   Invoice,
   Product,
@@ -491,7 +492,7 @@ const seedInvoices: Invoice[] = [
     totalAmount: 10_000,
     amountReceived: 10_000,
     changeDue: 0,
-    issuedAt: new Date("2026-07-28T18:00:00"),
+    issuedAt: new Date(),
     issuedById: "u1",
     issuedByName: CURRENT_USER.name,
     items: [
@@ -507,8 +508,55 @@ const seedInvoices: Invoice[] = [
         packName: "paquet",
       },
     ],
-    createdAt: new Date("2026-07-28T18:00:00"),
-    updatedAt: new Date("2026-07-28T18:00:00"),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+];
+
+const seedCashLedger: CashLedgerEntry[] = [
+  {
+    id: "cash1",
+    direction: "IN",
+    amount: 22_000,
+    paymentMethod: "CASH",
+    label: "Vente FV-20260720-1000",
+    description: "Encaissement client Client N~1",
+    reference: "FV-20260720-1000",
+    sourceType: "SALE",
+    sourceId: "inv1",
+    occurredAt: new Date("2026-07-20T10:00:00"),
+    createdById: "u1",
+    createdByName: CURRENT_USER.name,
+    createdAt: new Date("2026-07-20T10:00:00"),
+  },
+  {
+    id: "cash2",
+    direction: "IN",
+    amount: 10_000,
+    paymentMethod: "CASH",
+    label: "Vente FV-20260728-1800",
+    description: "Encaissement client Client N~2",
+    reference: "FV-20260728-1800",
+    sourceType: "SALE",
+    sourceId: "inv2",
+    occurredAt: new Date(),
+    createdById: "u1",
+    createdByName: CURRENT_USER.name,
+    createdAt: new Date(),
+  },
+  {
+    id: "cash3",
+    direction: "OUT",
+    amount: 1_300_000,
+    label: "Achat ACH-20260615-002",
+    description: "Paiement fournisseur Tech Distrib SA",
+    reference: "ACH-20260615-002",
+    sourceType: "PURCHASE",
+    sourceId: "pu2",
+    occurredAt: new Date("2026-06-20T12:00:00"),
+    createdById: "u1",
+    createdByName: CURRENT_USER.name,
+    createdAt: new Date("2026-06-20T12:00:00"),
   },
 ];
 
@@ -521,6 +569,7 @@ export type MockStore = {
   movements: StockMovement[];
   purchases: Purchase[];
   invoices: Invoice[];
+  cashLedger: CashLedgerEntry[];
   auditLogs: AuditLog[];
 };
 
@@ -534,12 +583,13 @@ function createSeedStore(): MockStore {
     movements: structuredClone(seedMovements),
     purchases: structuredClone(seedPurchases),
     invoices: structuredClone(seedInvoices),
+    cashLedger: structuredClone(seedCashLedger),
     auditLogs: [],
   };
 }
 
 /** Invalide le store HMR obsolete (evite mismatch SSR/client). */
-const STORE_VERSION = 4;
+const STORE_VERSION = 5;
 
 const globalStore = globalThis as unknown as {
   __bcfMockStore?: MockStore;
@@ -557,6 +607,7 @@ export function getStore(): MockStore {
   const store = globalStore.__bcfMockStore;
   if (!store.supplierOffers) store.supplierOffers = [];
   if (!store.auditLogs) store.auditLogs = [];
+  if (!store.cashLedger) store.cashLedger = [];
 
   const ensureActor = <T extends { createdById?: string; createdByName?: string }>(
     item: T,

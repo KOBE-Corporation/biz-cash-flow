@@ -1,6 +1,8 @@
 import { getStore } from "@/lib/mock/store";
+import { listCashLedgerForDay } from "@/lib/repositories/cash-ledger";
 import { listOffersForProduct } from "@/lib/repositories/offers";
 import { listProducts } from "@/lib/repositories/products";
+import type { CashLedgerEntry } from "@/lib/types";
 
 function startOfDay(date = new Date()) {
   const d = new Date(date);
@@ -18,13 +20,23 @@ function isSameDay(a: Date, b: Date) {
 
 export type DailyAccounting = {
   date: Date;
+  /** Entrees d'argent du jour (journal de caisse). */
+  cashIn: number;
+  /** Sorties d'argent du jour (journal de caisse). */
+  cashOut: number;
+  /** Solde caisse du jour = cashIn − cashOut. */
+  netCash: number;
   salesTotal: number;
   salesCount: number;
   purchasesTotal: number;
   purchasesCount: number;
+  /** Marge estimee sur ventes (CA − cout revient des articles vendus). */
   estimatedMargin: number;
+  /** Resultat journalier simplifie : marge − (achats caisse hors deja dans marge). */
+  dailyResult: number;
   lowStockAlerts: number;
   outOfStockAlerts: number;
+  ledger: CashLedgerEntry[];
   topProducts: Array<{
     productId: string;
     name: string;
@@ -48,22 +60,35 @@ export type DailyAccounting = {
   }>;
 };
 
+/**
+ * Compte du jour : basee sur le journal de caisse (entrees/sorties)
+ * + marge estimee des ventes payees.
+ */
 export function getDailyAccounting(date = new Date()): DailyAccounting {
   const day = startOfDay(date);
   const { invoices, purchases } = getStore();
   const products = listProducts();
+  const ledger = listCashLedgerForDay(day);
+
+  const cashIn = ledger
+    .filter((e) => e.direction === "IN")
+    .reduce((sum, e) => sum + e.amount, 0);
+  const cashOut = ledger
+    .filter((e) => e.direction === "OUT")
+    .reduce((sum, e) => sum + e.amount, 0);
+  const netCash = cashIn - cashOut;
 
   const dayInvoices = invoices.filter(
     (inv) => inv.status === "PAID" && isSameDay(new Date(inv.issuedAt), day),
   );
-  const dayPurchases = purchases.filter(
+  const dayPurchasesReceived = purchases.filter(
     (pu) =>
-      (pu.status === "RECEIVED" || pu.status === "PENDING") &&
-      isSameDay(new Date(pu.purchasedAt), day),
+      pu.status === "RECEIVED" &&
+      isSameDay(new Date(pu.updatedAt), day),
   );
 
   const salesTotal = dayInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
-  const purchasesTotal = dayPurchases.reduce(
+  const purchasesTotal = dayPurchasesReceived.reduce(
     (sum, pu) => sum + pu.totalAmount,
     0,
   );
@@ -109,6 +134,9 @@ export function getDailyAccounting(date = new Date()): DailyAccounting {
     0,
   );
 
+  // Resultat jour : marge sur ventes − sorties achats (tresorerie / resultat simplifie)
+  const dailyResult = estimatedMargin - purchasesTotal;
+
   const supplierComparisons = products
     .map((product) => {
       const offers = listOffersForProduct(product.id);
@@ -136,15 +164,20 @@ export function getDailyAccounting(date = new Date()): DailyAccounting {
 
   return {
     date: day,
+    cashIn,
+    cashOut,
+    netCash,
     salesTotal,
     salesCount: dayInvoices.length,
     purchasesTotal,
-    purchasesCount: dayPurchases.length,
+    purchasesCount: dayPurchasesReceived.length,
     estimatedMargin,
+    dailyResult,
     lowStockAlerts: active.filter(
       (p) => p.quantity > 0 && p.quantity <= p.minStock,
     ).length,
     outOfStockAlerts: active.filter((p) => p.quantity <= 0).length,
+    ledger,
     topProducts,
     supplierComparisons,
   };

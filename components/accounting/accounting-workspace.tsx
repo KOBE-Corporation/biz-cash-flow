@@ -1,10 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, Printer, TrendingDown, TrendingUp } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Printer,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader, StatCard } from "@/components/ui/page-header";
+import { paymentMethodLabels } from "@/lib/sales/cart";
 import { getDailyAccounting } from "@/lib/repositories/accounting";
 import { formatCurrency } from "@/lib/utils";
 
@@ -23,7 +31,7 @@ export function AccountingWorkspace() {
     <div className="space-y-6 print:space-y-4">
       <PageHeader
         title="Comptabilite"
-        description="Compte du jour, marges estimees, alertes stock et comparaison fournisseurs."
+        description="Journal de caisse du jour : entrees, sorties, gains/pertes et tracabilite utilisateur."
         actions={
           <div className="flex flex-wrap gap-2 print:hidden">
             <Button variant="outline" onClick={() => setTick((v) => v + 1)}>
@@ -49,21 +57,41 @@ export function AccountingWorkspace() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Ventes du jour"
-          value={formatCurrency(data.salesTotal)}
-          subtitle={`${data.salesCount} facture(s)`}
+          title="Entrees caisse"
+          value={formatCurrency(data.cashIn)}
+          subtitle={`${data.salesCount} vente(s) payee(s)`}
           variant="success"
         />
         <StatCard
-          title="Achats du jour"
-          value={formatCurrency(data.purchasesTotal)}
-          subtitle={`${data.purchasesCount} commande(s)`}
+          title="Sorties caisse"
+          value={formatCurrency(data.cashOut)}
+          subtitle={`${data.purchasesCount} achat(s) recu(s)`}
+          variant="danger"
         />
         <StatCard
-          title="Marge estimee"
+          title="Solde caisse du jour"
+          value={formatCurrency(data.netCash)}
+          subtitle="Entrees − sorties"
+          variant={data.netCash >= 0 ? "success" : "danger"}
+        />
+        <StatCard
+          title="Marge / resultat"
           value={formatCurrency(data.estimatedMargin)}
-          subtitle="Ventes − cout revient"
+          subtitle={`Resultat simplifie : ${formatCurrency(data.dailyResult)}`}
           variant={data.estimatedMargin >= 0 ? "success" : "danger"}
+        />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatCard
+          title="CA ventes"
+          value={formatCurrency(data.salesTotal)}
+          subtitle="Factures payees du jour"
+        />
+        <StatCard
+          title="Achats recus"
+          value={formatCurrency(data.purchasesTotal)}
+          subtitle="Sorties stock + caisse"
         />
         <StatCard
           title="Alertes stock"
@@ -92,6 +120,79 @@ export function AccountingWorkspace() {
           </div>
         </div>
       )}
+
+      <section className="space-y-3">
+        <h2 className="text-base font-semibold text-foreground">
+          Journal de caisse (jour)
+        </h2>
+        {data.ledger.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Aucun mouvement d&apos;argent aujourd&apos;hui. Les ventes payees et
+            les achats recus s&apos;y enregistrent automatiquement.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-border">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-surface-2 text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Heure</th>
+                  <th className="px-3 py-2 font-medium">Sens</th>
+                  <th className="px-3 py-2 font-medium">Libelle</th>
+                  <th className="px-3 py-2 font-medium">Par</th>
+                  <th className="px-3 py-2 font-medium text-right">Montant</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.ledger.map((entry) => (
+                  <tr key={entry.id} className="border-t border-border">
+                    <td className="px-3 py-2 tabular-nums text-muted-foreground">
+                      {entry.occurredAt.toLocaleTimeString("fr-FR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </td>
+                    <td className="px-3 py-2">
+                      <Badge
+                        variant={entry.direction === "IN" ? "success" : "danger"}
+                        className="gap-1"
+                      >
+                        {entry.direction === "IN" ? (
+                          <ArrowDownLeft className="h-3 w-3" />
+                        ) : (
+                          <ArrowUpRight className="h-3 w-3" />
+                        )}
+                        {entry.direction === "IN" ? "Entree" : "Sortie"}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2">
+                      <p className="font-medium">{entry.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {entry.reference ?? entry.sourceType}
+                        {entry.paymentMethod
+                          ? ` · ${paymentMethodLabels[entry.paymentMethod]}`
+                          : ""}
+                      </p>
+                    </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {entry.createdByName}
+                    </td>
+                    <td
+                      className={`px-3 py-2 text-right tabular-nums font-medium ${
+                        entry.direction === "IN"
+                          ? "text-success"
+                          : "text-destructive"
+                      }`}
+                    >
+                      {entry.direction === "IN" ? "+" : "−"}
+                      {formatCurrency(entry.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-foreground">
@@ -194,9 +295,9 @@ export function AccountingWorkspace() {
       </section>
 
       <p className="text-xs text-muted-foreground print:hidden">
-        Prochaines etapes : journal d&apos;ecritures, export PDF, alertes push,
-        rapprochement periodique. Les gains sont estimes a partir du dernier
-        cout de revient connu.
+        Chaque ligne de caisse est liee a l&apos;utilisateur courant (stub auth).
+        La gestion multi-users arrivera plus tard. Marge = CA − cout de revient
+        des articles vendus.
       </p>
     </div>
   );

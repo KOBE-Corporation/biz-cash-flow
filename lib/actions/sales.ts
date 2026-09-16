@@ -126,6 +126,43 @@ export async function createSaleInvoice(
       select: { id: true, number: true },
     });
 
+    // Pont temporaire : journal de caisse mock (page Comptabilite)
+    // jusqu'a ce que tout le runtime soit branche sur Prisma.
+    try {
+      const { addInvoice } = await import("@/lib/repositories/invoices");
+      const { CURRENT_USER } = await import("@/lib/auth/current-user");
+      addInvoice({
+        id: invoice.id,
+        number: invoice.number,
+        customerName: input.customerName,
+        status: "PAID",
+        paymentMethod: input.paymentMethod,
+        subtotal,
+        discountAmount,
+        taxAmount: 0,
+        totalAmount,
+        amountReceived,
+        changeDue,
+        notes: input.notes?.trim() || undefined,
+        issuedAt: new Date(),
+        issuedById: issuer.id,
+        issuedByName: issuer.name || CURRENT_USER.name,
+        items: input.lines.map((line, index) => ({
+          id: `ii_${invoice.id}_${index}`,
+          invoiceId: invoice.id,
+          productId: productIdBySku.get(line.sku),
+          productName: line.name,
+          productSku: line.sku,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          unitsOfBase: (line.unitsOfBase ?? 1) * line.quantity,
+          packName: line.packName,
+        })),
+      });
+    } catch (bridgeError) {
+      console.warn("cash ledger bridge skipped", bridgeError);
+    }
+
     return {
       ok: true,
       invoiceId: invoice.id,

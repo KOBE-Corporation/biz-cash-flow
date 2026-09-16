@@ -81,6 +81,7 @@ Achat frequent en casier ; revente a l’unite ou au casier.
 - [x] UI achats : fournisseur optionnel, categorie inline, lots
 - [x] Suggestion prix vente vs cout
 - [x] Comptabilite du jour (mock)
+- [x] Journal de caisse IN/OUT (CashLedgerEntry) + auto-poste vente/achat + user
 - [x] Documentation (`docs/`, README, guide)
 - [x] Tracabilite User sur toutes les operations (schema + repos + AuditLog)
 - [ ] Vente multi-packs dans `/sales` (choix paquet / cartouche / casier)
