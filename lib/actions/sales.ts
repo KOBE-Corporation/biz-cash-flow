@@ -1,6 +1,5 @@
 "use server";
 
-import { prisma } from "@/lib/db/prisma";
 import { CURRENT_USER } from "@/lib/auth/current-user";
 import type { CartLine, PaymentMethod } from "@/lib/types";
 import {
@@ -10,6 +9,10 @@ import {
   resolveDiscountAmount,
   type DiscountMode,
 } from "@/lib/sales/cart";
+import { addInvoice } from "@/lib/repositories/invoices";
+import { createMovement } from "@/lib/repositories/movements";
+import { findProductByBarcode, getProduct } from "@/lib/repositories/products";
+import { getActor } from "@/lib/repositories/audit";
 
 export type CreateSaleInvoiceInput = {
   lines: CartLine[];
@@ -43,18 +46,10 @@ function buildInvoiceNumber(date = new Date()) {
   return `FV-${stamp}-${suffix}`;
 }
 
-async function resolveIssuer() {
-  return prisma.user.upsert({
-    where: { email: CURRENT_USER.email },
-    update: { name: CURRENT_USER.name },
-    create: {
-      email: CURRENT_USER.email,
-      name: CURRENT_USER.name,
-    },
-    select: { id: true, name: true, email: true },
-  });
-}
-
+/**
+ * Enregistre une vente via le store mock (journal caisse + stock).
+ * Prisma reste optionnel tant que la BD n'est pas configuree.
+ */
 export async function createSaleInvoice(
   input: CreateSaleInvoiceInput,
 ): Promise<CreateSaleInvoiceResult> {
@@ -63,7 +58,13 @@ export async function createSaleInvoice(
       return { ok: false, error: "Panier vide" };
     }
 
-    const issuer = await resolveIssuer();
+    const actor = getActor();
+    const issuer = {
+      id: actor.id,
+      name: actor.name,
+      email: CURRENT_USER.email,
+    };
+
     const subtotal = getCartSubtotal(input.lines);
     const discountAmount = resolveDiscountAmount(
       subtotal,
@@ -83,85 +84,95 @@ export async function createSaleInvoice(
       : totalAmount;
     const changeDue = isCash ? getChangeDue(totalAmount, amountReceived) : 0;
     const invoiceNumber = buildInvoiceNumber();
+    const issuedAt = new Date();
 
-    const productsBySku = await prisma.product.findMany({
-      where: {
-        sku: { in: input.lines.map((line) => line.sku) },
-      },
-      select: { id: true, sku: true },
-    });
-    const productIdBySku = new Map<string, string>(
-      productsBySku.map((product: { id: string; sku: string }) => [
-        product.sku,
-        product.id,
-      ]),
-    );
+    for (const line of input.lines) {
+      const product =
+        getProduct(line.productId) ?? findProductByBarcode(line.sku);
+      if (!product) {
+        return { ok: false, error: `Produit introuvable : ${line.name}` };
+      }
+      const units = (line.unitsOfBase ?? 1) * line.quantity;
+      if (product.quantity < units) {
+        return {
+          ok: false,
+          error: `Stock insuffisant pour « ${product.name} »`,
+        };
+      }
+    }
 
-    const invoice = await prisma.invoice.create({
-      data: {
-        number: invoiceNumber,
-        customerName: input.customerName,
-        status: "PAID",
-        paymentMethod: input.paymentMethod,
-        subtotal,
-        discountAmount,
-        taxAmount: 0,
-        totalAmount,
-        amountReceived,
-        changeDue,
-        notes: input.notes?.trim() || null,
-        issuedById: issuer.id,
-        items: {
-          create: input.lines.map((line) => ({
-            productId: productIdBySku.get(line.sku) ?? null,
-            productName: line.name,
-            productSku: line.sku,
-            quantity: line.quantity,
-            unitPrice: line.unitPrice,
-            unitsOfBase: (line.unitsOfBase ?? 1) * line.quantity,
-            packName: line.packName ?? null,
-          })),
-        },
-      },
-      select: { id: true, number: true },
-    });
-
-    // Pont temporaire : journal de caisse mock (page Comptabilite)
-    // jusqu'a ce que tout le runtime soit branche sur Prisma.
-    try {
-      const { addInvoice } = await import("@/lib/repositories/invoices");
-      const { CURRENT_USER } = await import("@/lib/auth/current-user");
-      addInvoice({
-        id: invoice.id,
-        number: invoice.number,
-        customerName: input.customerName,
-        status: "PAID",
-        paymentMethod: input.paymentMethod,
-        subtotal,
-        discountAmount,
-        taxAmount: 0,
-        totalAmount,
-        amountReceived,
-        changeDue,
-        notes: input.notes?.trim() || undefined,
-        issuedAt: new Date(),
-        issuedById: issuer.id,
-        issuedByName: issuer.name || CURRENT_USER.name,
-        items: input.lines.map((line, index) => ({
-          id: `ii_${invoice.id}_${index}`,
-          invoiceId: invoice.id,
-          productId: productIdBySku.get(line.sku),
+    const invoice = addInvoice({
+      number: invoiceNumber,
+      customerName: input.customerName,
+      status: "PAID",
+      paymentMethod: input.paymentMethod,
+      subtotal,
+      discountAmount,
+      taxAmount: 0,
+      totalAmount,
+      amountReceived,
+      changeDue,
+      notes: input.notes?.trim() || undefined,
+      issuedAt,
+      issuedById: issuer.id,
+      issuedByName: issuer.name,
+      items: input.lines.map((line, index) => {
+        const product =
+          getProduct(line.productId) ?? findProductByBarcode(line.sku);
+        return {
+          id: `ii_sale_${Date.now()}_${index}`,
+          invoiceId: "",
+          productId: product?.id ?? line.productId,
           productName: line.name,
           productSku: line.sku,
           quantity: line.quantity,
           unitPrice: line.unitPrice,
           unitsOfBase: (line.unitsOfBase ?? 1) * line.quantity,
           packName: line.packName,
-        })),
-      });
-    } catch (bridgeError) {
-      console.warn("cash ledger bridge skipped", bridgeError);
+        };
+      }),
+    });
+
+    // Corrige invoiceId sur les lignes (addInvoice regenere l'objet)
+    for (const item of invoice.items) {
+      item.invoiceId = invoice.id;
     }
+
+    for (const line of input.lines) {
+      const product =
+        getProduct(line.productId) ?? findProductByBarcode(line.sku);
+      if (!product) continue;
+      const units = (line.unitsOfBase ?? 1) * line.quantity;
+      const movement = createMovement({
+        productId: product.id,
+        type: "OUT",
+        quantity: units,
+        unitPrice: line.unitPrice,
+        reference: invoice.number,
+        notes: line.packName
+          ? `Vente ${line.quantity} × ${line.packName}`
+          : `Vente ${line.quantity}`,
+      });
+      if (!movement.ok) {
+        return { ok: false, error: movement.error };
+      }
+    }
+
+    // Tentative Prisma en arriere-plan (ignoree si BD indisponible)
+    void persistSaleToPrisma({
+      invoiceNumber: invoice.number,
+      customerName: input.customerName,
+      paymentMethod: input.paymentMethod,
+      subtotal,
+      discountAmount,
+      totalAmount,
+      amountReceived,
+      changeDue,
+      notes: input.notes,
+      issuedByEmail: issuer.email,
+      issuedByName: issuer.name,
+      lines: input.lines,
+    }).catch(() => undefined);
 
     return {
       ok: true,
@@ -179,6 +190,68 @@ export async function createSaleInvoice(
           : "Impossible d'enregistrer la facture",
     };
   }
+}
+
+async function persistSaleToPrisma(payload: {
+  invoiceNumber: string;
+  customerName: string;
+  paymentMethod: PaymentMethod;
+  subtotal: number;
+  discountAmount: number;
+  totalAmount: number;
+  amountReceived: number;
+  changeDue: number;
+  notes?: string;
+  issuedByEmail: string;
+  issuedByName: string;
+  lines: CartLine[];
+}) {
+  const { prisma } = await import("@/lib/db/prisma");
+  const issuer = await prisma.user.upsert({
+    where: { email: payload.issuedByEmail },
+    update: { name: payload.issuedByName },
+    create: {
+      email: payload.issuedByEmail,
+      name: payload.issuedByName,
+    },
+    select: { id: true },
+  });
+
+  const productsBySku = await prisma.product.findMany({
+    where: { sku: { in: payload.lines.map((line) => line.sku) } },
+    select: { id: true, sku: true },
+  });
+  const productIdBySku = new Map(
+    productsBySku.map((product) => [product.sku, product.id]),
+  );
+
+  await prisma.invoice.create({
+    data: {
+      number: payload.invoiceNumber,
+      customerName: payload.customerName,
+      status: "PAID",
+      paymentMethod: payload.paymentMethod,
+      subtotal: payload.subtotal,
+      discountAmount: payload.discountAmount,
+      taxAmount: 0,
+      totalAmount: payload.totalAmount,
+      amountReceived: payload.amountReceived,
+      changeDue: payload.changeDue,
+      notes: payload.notes?.trim() || null,
+      issuedById: issuer.id,
+      items: {
+        create: payload.lines.map((line) => ({
+          productId: productIdBySku.get(line.sku) ?? null,
+          productName: line.name,
+          productSku: line.sku,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          unitsOfBase: (line.unitsOfBase ?? 1) * line.quantity,
+          packName: line.packName ?? null,
+        })),
+      },
+    },
+  });
 }
 
 /** Expose pour typage client / aperçu sans appeler la DB. */

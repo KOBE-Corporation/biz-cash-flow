@@ -37,6 +37,16 @@ export type DailyAccounting = {
   lowStockAlerts: number;
   outOfStockAlerts: number;
   ledger: CashLedgerEntry[];
+  /** Resume des ventes / encaissements par vendeur pour la journee. */
+  salesByUser: Array<{
+    userId: string;
+    userName: string;
+    salesCount: number;
+    salesTotal: number;
+    cashIn: number;
+    firstSaleAt?: Date;
+    lastSaleAt?: Date;
+  }>;
   topProducts: Array<{
     productId: string;
     name: string;
@@ -160,6 +170,66 @@ export function getDailyAccounting(date = new Date()): DailyAccounting {
     })
     .filter(Boolean) as DailyAccounting["supplierComparisons"];
 
+  const byUser = new Map<
+    string,
+    {
+      userId: string;
+      userName: string;
+      salesCount: number;
+      salesTotal: number;
+      cashIn: number;
+      firstSaleAt?: Date;
+      lastSaleAt?: Date;
+    }
+  >();
+
+  for (const inv of dayInvoices) {
+    const key = inv.issuedById || inv.issuedByName;
+    const current = byUser.get(key) ?? {
+      userId: inv.issuedById,
+      userName: inv.issuedByName,
+      salesCount: 0,
+      salesTotal: 0,
+      cashIn: 0,
+    };
+    current.salesCount += 1;
+    current.salesTotal += inv.totalAmount;
+    const issued = new Date(inv.issuedAt);
+    if (!current.firstSaleAt || issued < current.firstSaleAt) {
+      current.firstSaleAt = issued;
+    }
+    if (!current.lastSaleAt || issued > current.lastSaleAt) {
+      current.lastSaleAt = issued;
+    }
+    byUser.set(key, current);
+  }
+
+  for (const entry of ledger) {
+    if (entry.direction !== "IN" || entry.sourceType !== "SALE") continue;
+    const key = entry.createdById || entry.createdByName;
+    const current = byUser.get(key) ?? {
+      userId: entry.createdById,
+      userName: entry.createdByName,
+      salesCount: 0,
+      salesTotal: 0,
+      cashIn: 0,
+    };
+    current.cashIn += entry.amount;
+    if (!current.userName) current.userName = entry.createdByName;
+    byUser.set(key, current);
+  }
+
+  // Si un vendeur a du CA facture mais pas encore cashIn aligne, egalise
+  for (const row of byUser.values()) {
+    if (row.cashIn === 0 && row.salesTotal > 0) {
+      row.cashIn = row.salesTotal;
+    }
+  }
+
+  const salesByUser = [...byUser.values()].sort(
+    (a, b) => b.salesTotal - a.salesTotal,
+  );
+
   const active = products.filter((p) => p.isActive);
 
   return {
@@ -178,6 +248,7 @@ export function getDailyAccounting(date = new Date()): DailyAccounting {
     ).length,
     outOfStockAlerts: active.filter((p) => p.quantity <= 0).length,
     ledger,
+    salesByUser,
     topProducts,
     supplierComparisons,
   };

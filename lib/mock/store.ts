@@ -41,6 +41,14 @@ const seedCategories: Category[] = [
     packLevels: [
       { id: "pl_s1", name: "piece", unitsOfBase: 1 },
     ],
+    tracking: {
+      tracksManufacturedAt: false,
+      tracksExpiry: false,
+      tracksBatchNumber: false,
+      tracksSerialNumber: true,
+      expiryAlertDays: 30,
+      expiryCriticalDays: 7,
+    },
     isActive: true,
     ...ACTOR,
     createdAt: new Date("2026-01-01"),
@@ -52,6 +60,14 @@ const seedCategories: Category[] = [
     description: "Cables, coques, energie",
     baseUnitName: "piece",
     packLevels: [{ id: "pl_a1", name: "piece", unitsOfBase: 1 }],
+    tracking: {
+      tracksManufacturedAt: false,
+      tracksExpiry: false,
+      tracksBatchNumber: false,
+      tracksSerialNumber: false,
+      expiryAlertDays: 30,
+      expiryCriticalDays: 7,
+    },
     isActive: true,
     ...ACTOR,
     createdAt: new Date("2026-01-01"),
@@ -60,13 +76,23 @@ const seedCategories: Category[] = [
   {
     id: "c4",
     name: "Cigarettes",
-    description: "Paquet / cartouche / carton",
+    description: "Paquet / cartouche / carton — suivi lot & peremption",
     baseUnitName: "paquet",
     packLevels: [
       { id: "pl_cig1", name: "paquet", unitsOfBase: 1 },
       { id: "pl_cig2", name: "cartouche", unitsOfBase: 20 },
       { id: "pl_cig3", name: "carton", unitsOfBase: 200 },
     ],
+    tracking: {
+      tracksManufacturedAt: true,
+      tracksExpiry: true,
+      tracksBatchNumber: true,
+      tracksSerialNumber: false,
+      expiryAlertDays: 60,
+      expiryCriticalDays: 14,
+      defaultShelfLifeDays: 365,
+      suggestedNearExpiryDiscountPercent: 15,
+    },
     isActive: true,
     ...ACTOR,
     createdAt: new Date("2026-01-01"),
@@ -75,7 +101,7 @@ const seedCategories: Category[] = [
   {
     id: "c5",
     name: "Bieres",
-    description: "Bouteille / casiers 12-15-24",
+    description: "Bouteille / casiers — dates obligatoires",
     baseUnitName: "bouteille",
     packLevels: [
       { id: "pl_b1", name: "bouteille", unitsOfBase: 1 },
@@ -83,6 +109,16 @@ const seedCategories: Category[] = [
       { id: "pl_b3", name: "casier 15", unitsOfBase: 15 },
       { id: "pl_b4", name: "casier 24", unitsOfBase: 24 },
     ],
+    tracking: {
+      tracksManufacturedAt: true,
+      tracksExpiry: true,
+      tracksBatchNumber: true,
+      tracksSerialNumber: false,
+      expiryAlertDays: 45,
+      expiryCriticalDays: 10,
+      defaultShelfLifeDays: 180,
+      suggestedNearExpiryDiscountPercent: 20,
+    },
     isActive: true,
     ...ACTOR,
     createdAt: new Date("2026-01-01"),
@@ -492,7 +528,7 @@ const seedInvoices: Invoice[] = [
     totalAmount: 10_000,
     amountReceived: 10_000,
     changeDue: 0,
-    issuedAt: new Date(),
+    issuedAt: new Date("2026-09-16T09:15:00"),
     issuedById: "u1",
     issuedByName: CURRENT_USER.name,
     items: [
@@ -508,8 +544,8 @@ const seedInvoices: Invoice[] = [
         packName: "paquet",
       },
     ],
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: new Date("2026-09-16T09:15:00"),
+    updatedAt: new Date("2026-09-16T09:15:00"),
   },
 ];
 
@@ -539,10 +575,10 @@ const seedCashLedger: CashLedgerEntry[] = [
     reference: "FV-20260728-1800",
     sourceType: "SALE",
     sourceId: "inv2",
-    occurredAt: new Date(),
+    occurredAt: new Date("2026-09-16T09:15:00"),
     createdById: "u1",
     createdByName: CURRENT_USER.name,
-    createdAt: new Date(),
+    createdAt: new Date("2026-09-16T09:15:00"),
   },
   {
     id: "cash3",
@@ -589,7 +625,7 @@ function createSeedStore(): MockStore {
 }
 
 /** Invalide le store HMR obsolete (evite mismatch SSR/client). */
-const STORE_VERSION = 5;
+const STORE_VERSION = 6;
 
 const globalStore = globalThis as unknown as {
   __bcfMockStore?: MockStore;

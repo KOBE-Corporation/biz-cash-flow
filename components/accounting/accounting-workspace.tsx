@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
   ArrowDownLeft,
@@ -16,16 +17,76 @@ import { paymentMethodLabels } from "@/lib/sales/cart";
 import { getDailyAccounting } from "@/lib/repositories/accounting";
 import { formatCurrency } from "@/lib/utils";
 
+/** Format HH:mm local, sans toLocale* (évite décalages SSR/client). */
+function formatTime(date: Date) {
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function formatDayLabel(date: Date) {
+  const weekdays = [
+    "dimanche",
+    "lundi",
+    "mardi",
+    "mercredi",
+    "jeudi",
+    "vendredi",
+    "samedi",
+  ];
+  const months = [
+    "janvier",
+    "fevrier",
+    "mars",
+    "avril",
+    "mai",
+    "juin",
+    "juillet",
+    "aout",
+    "septembre",
+    "octobre",
+    "novembre",
+    "decembre",
+  ];
+  return `${weekdays[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+}
+
 export function AccountingWorkspace() {
   const [tick, setTick] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const data = useMemo(() => {
+    if (!mounted) return null;
     void tick;
     return getDailyAccounting(new Date());
-  }, [tick]);
+  }, [tick, mounted]);
 
   const handlePrint = () => {
     window.print();
   };
+
+  if (!data) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Comptabilite"
+          description="Chargement du compte du jour…"
+        />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div
+              key={index}
+              className="h-28 animate-pulse rounded-xl border border-border bg-surface-2"
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 print:space-y-4">
@@ -46,13 +107,7 @@ export function AccountingWorkspace() {
       />
 
       <p className="text-sm text-muted-foreground print:text-foreground">
-        Journee du{" "}
-        {data.date.toLocaleDateString("fr-FR", {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })}
+        Journee du {formatDayLabel(data.date)}
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -93,33 +148,84 @@ export function AccountingWorkspace() {
           value={formatCurrency(data.purchasesTotal)}
           subtitle="Sorties stock + caisse"
         />
-        <StatCard
-          title="Alertes stock"
-          value={data.lowStockAlerts + data.outOfStockAlerts}
-          subtitle={`${data.outOfStockAlerts} rupture · ${data.lowStockAlerts} faible`}
-          variant={
-            data.outOfStockAlerts > 0
-              ? "danger"
-              : data.lowStockAlerts > 0
-                ? "warning"
-                : "success"
-          }
-        />
+        <Link href="/comptabilite/stock" className="block rounded-xl outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring">
+          <StatCard
+            title="Alertes stock"
+            value={data.lowStockAlerts + data.outOfStockAlerts}
+            subtitle={`${data.outOfStockAlerts} rupture · ${data.lowStockAlerts} faible — cliquer`}
+            variant={
+              data.outOfStockAlerts > 0
+                ? "danger"
+                : data.lowStockAlerts > 0
+                  ? "warning"
+                  : "success"
+            }
+          />
+        </Link>
       </div>
 
       {(data.lowStockAlerts > 0 || data.outOfStockAlerts > 0) && (
-        <div className="flex items-start gap-3 rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm print:border-border">
+        <Link
+          href="/comptabilite/stock"
+          className="group flex cursor-pointer items-start gap-3 rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm transition-colors hover:bg-warning/15 print:border-border"
+        >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="font-medium text-foreground">Alertes stock</p>
             <p className="text-muted-foreground">
               {data.outOfStockAlerts} produit(s) en rupture,{" "}
-              {data.lowStockAlerts} sous le seuil minimum. Voir la page Produits
-              / Mouvements.
+              {data.lowStockAlerts} sous le seuil minimum.
             </p>
           </div>
-        </div>
+          <span className="shrink-0 self-center text-xs font-medium text-primary group-hover:underline">
+            Voir le stock →
+          </span>
+        </Link>
       )}
+
+      <section className="space-y-3">
+        <h2 className="text-base font-semibold text-foreground">
+          Ventes par vendeur (jour)
+        </h2>
+        {data.salesByUser.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Aucune vente enregistree aujourd&apos;hui.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-border">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-surface-2 text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Vendeur</th>
+                  <th className="px-3 py-2 font-medium">Tickets</th>
+                  <th className="px-3 py-2 font-medium">CA</th>
+                  <th className="px-3 py-2 font-medium">Encaisse</th>
+                  <th className="px-3 py-2 font-medium">Plage horaire</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.salesByUser.map((row) => (
+                  <tr key={row.userId} className="border-t border-border">
+                    <td className="px-3 py-2 font-medium">{row.userName}</td>
+                    <td className="px-3 py-2 tabular-nums">{row.salesCount}</td>
+                    <td className="px-3 py-2 tabular-nums">
+                      {formatCurrency(row.salesTotal)}
+                    </td>
+                    <td className="px-3 py-2 tabular-nums text-success">
+                      {formatCurrency(row.cashIn)}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {row.firstSaleAt && row.lastSaleAt
+                        ? `${formatTime(row.firstSaleAt)} → ${formatTime(row.lastSaleAt)}`
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <section className="space-y-3">
         <h2 className="text-base font-semibold text-foreground">
@@ -146,10 +252,7 @@ export function AccountingWorkspace() {
                 {data.ledger.map((entry) => (
                   <tr key={entry.id} className="border-t border-border">
                     <td className="px-3 py-2 tabular-nums text-muted-foreground">
-                      {entry.occurredAt.toLocaleTimeString("fr-FR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {formatTime(entry.occurredAt)}
                     </td>
                     <td className="px-3 py-2">
                       <Badge
@@ -296,8 +399,7 @@ export function AccountingWorkspace() {
 
       <p className="text-xs text-muted-foreground print:hidden">
         Chaque ligne de caisse est liee a l&apos;utilisateur courant (stub auth).
-        La gestion multi-users arrivera plus tard. Marge = CA − cout de revient
-        des articles vendus.
+        La gestion multi-users arrivera plus tard.
       </p>
     </div>
   );

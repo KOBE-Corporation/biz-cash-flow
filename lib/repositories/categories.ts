@@ -1,16 +1,26 @@
 import { createId, getStore, touch } from "@/lib/mock/store";
+import {
+  DEFAULT_CATEGORY_TRACKING,
+  normalizeCategoryTracking,
+} from "@/lib/inventory/expiry";
 import { getActor, recordAudit } from "@/lib/repositories/audit";
 import {
   createPackLevelId,
   ensureBasePackLevel,
 } from "@/lib/sales/pricing";
-import type { Category, PackLevelTemplate, RepoResult } from "@/lib/types";
+import type {
+  Category,
+  CategoryTracking,
+  PackLevelTemplate,
+  RepoResult,
+} from "@/lib/types";
 
 export type CategoryInput = {
   name: string;
   description?: string;
   baseUnitName: string;
   packLevels?: PackLevelTemplate[];
+  tracking?: Partial<CategoryTracking>;
   isActive?: boolean;
 };
 
@@ -60,6 +70,9 @@ export function createCategory(input: CategoryInput): RepoResult<Category> {
     description: input.description?.trim() || undefined,
     baseUnitName,
     packLevels: normalizePackLevels(baseUnitName, input.packLevels),
+    tracking: normalizeCategoryTracking(
+      input.tracking ?? DEFAULT_CATEGORY_TRACKING,
+    ),
     isActive: input.isActive ?? true,
     createdById: actor.id,
     createdByName: actor.name,
@@ -104,6 +117,9 @@ export function updateCategory(
     description: input.description?.trim() || undefined,
     baseUnitName,
     packLevels: normalizePackLevels(baseUnitName, input.packLevels),
+    tracking: normalizeCategoryTracking(
+      input.tracking ?? current.tracking ?? DEFAULT_CATEGORY_TRACKING,
+    ),
     isActive: input.isActive ?? current.isActive,
     updatedById: actor.id,
     updatedByName: actor.name,

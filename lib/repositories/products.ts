@@ -21,6 +21,10 @@ export type ProductInput = {
   baseUnitName?: string;
   packLevels?: ProductPackPrice[];
   isActive?: boolean;
+  manufacturedAt?: Date | null;
+  expiresAt?: Date | null;
+  batchNumber?: string | null;
+  serialNumber?: string | null;
 };
 
 export function listProducts() {
@@ -95,6 +99,10 @@ export function createProduct(input: ProductInput): RepoResult<Product> {
     isActive: input.isActive ?? true,
     categoryId: input.categoryId,
     supplierId: input.supplierId || undefined,
+    manufacturedAt: input.manufacturedAt ?? undefined,
+    expiresAt: input.expiresAt ?? undefined,
+    batchNumber: input.batchNumber?.trim() || undefined,
+    serialNumber: input.serialNumber?.trim() || undefined,
     createdById: actor.id,
     createdByName: actor.name,
     createdAt: now,
@@ -176,6 +184,26 @@ export function updateProduct(
     isActive: input.isActive ?? current.isActive,
     categoryId: input.categoryId,
     supplierId: input.supplierId || undefined,
+    manufacturedAt:
+      input.manufacturedAt === null
+        ? undefined
+        : (input.manufacturedAt ?? current.manufacturedAt),
+    expiresAt:
+      input.expiresAt === null
+        ? undefined
+        : (input.expiresAt ?? current.expiresAt),
+    batchNumber:
+      input.batchNumber === null
+        ? undefined
+        : input.batchNumber !== undefined
+          ? input.batchNumber.trim() || undefined
+          : current.batchNumber,
+    serialNumber:
+      input.serialNumber === null
+        ? undefined
+        : input.serialNumber !== undefined
+          ? input.serialNumber.trim() || undefined
+          : current.serialNumber,
     updatedById: actor.id,
     updatedByName: actor.name,
     updatedAt: touch(),

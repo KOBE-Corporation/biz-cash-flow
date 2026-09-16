@@ -46,6 +46,31 @@ export type ProductPackPrice = PackLevelTemplate & {
   salePrice: number;
 };
 
+/**
+ * Politique de suivi par categorie (flexible : chaque famille active
+ * ce dont elle a besoin — peremption, fabrication, lot, serie…).
+ */
+export type CategoryTracking = {
+  /** Suivre la date de fabrication sur les produits / receptions. */
+  tracksManufacturedAt: boolean;
+  /** Suivre la date de peremption. */
+  tracksExpiry: boolean;
+  /** Suivre un numero de lot / batch. */
+  tracksBatchNumber: boolean;
+  /** Suivre un numero de serie (ex. smartphones). */
+  tracksSerialNumber: boolean;
+  /** Alerte « bientot » : J jours avant peremption. */
+  expiryAlertDays: number;
+  /** Alerte critique : J jours avant peremption. */
+  expiryCriticalDays: number;
+  /** Duree de vie par defaut (jours) — suggere expiresAt = fabricated + shelf. */
+  defaultShelfLifeDays?: number;
+  /** Remise suggeree (%) pour ecouler avant perte. */
+  suggestedNearExpiryDiscountPercent?: number;
+};
+
+export type ExpiryStatus = "none" | "ok" | "soon" | "critical" | "expired";
+
 export type Category = {
   id: string;
   name: string;
@@ -54,6 +79,7 @@ export type Category = {
   baseUnitName: string;
   /** Niveaux de gros derives de l'unite de base. */
   packLevels: PackLevelTemplate[];
+  tracking: CategoryTracking;
   isActive: boolean;
   createdById: string;
   createdByName: string;
@@ -120,6 +146,11 @@ export type Product = {
   categoryId: string;
   /** Fournisseur preferentiel optionnel. */
   supplierId?: string;
+  /** Lot courant (MVP) — dates / refs selon politique categorie. */
+  manufacturedAt?: Date;
+  expiresAt?: Date;
+  batchNumber?: string;
+  serialNumber?: string;
   createdById: string;
   createdByName: string;
   updatedById?: string;
@@ -154,6 +185,10 @@ export type PurchaseItem = {
   unitPrice: number;
   purchasePackName: string;
   unitsPerPurchasePack: number;
+  manufacturedAt?: Date;
+  expiresAt?: Date;
+  batchNumber?: string;
+  serialNumber?: string;
 };
 
 export type Purchase = {

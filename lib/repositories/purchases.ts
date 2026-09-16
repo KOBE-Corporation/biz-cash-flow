@@ -19,6 +19,10 @@ export type PurchaseItemInput = {
   unitPrice: number;
   purchasePackName?: string;
   unitsPerPurchasePack?: number;
+  manufacturedAt?: Date;
+  expiresAt?: Date;
+  batchNumber?: string;
+  serialNumber?: string;
 };
 
 export type PurchaseInput = {
@@ -73,6 +77,10 @@ function buildItems(
       purchasePackName:
         line.purchasePackName?.trim() || product.baseUnitName || "lot",
       unitsPerPurchasePack,
+      manufacturedAt: line.manufacturedAt,
+      expiresAt: line.expiresAt,
+      batchNumber: line.batchNumber?.trim() || undefined,
+      serialNumber: line.serialNumber?.trim() || undefined,
     });
   }
   return { ok: true, data: items };
@@ -206,6 +214,10 @@ export function setPurchaseStatus(
       const product = getProduct(item.productId);
       if (product) {
         product.purchasePrice = cost;
+        if (item.manufacturedAt) product.manufacturedAt = item.manufacturedAt;
+        if (item.expiresAt) product.expiresAt = item.expiresAt;
+        if (item.batchNumber) product.batchNumber = item.batchNumber;
+        if (item.serialNumber) product.serialNumber = item.serialNumber;
         product.updatedById = actor.id;
         product.updatedByName = actor.name;
         product.updatedAt = touch();
