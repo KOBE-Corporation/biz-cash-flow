@@ -2,9 +2,11 @@ import { getStore } from "@/lib/mock/store";
 import { sumOperationalCash } from "@/lib/cash/pnl";
 import { listCashLedgerForDay } from "@/lib/repositories/cash-ledger";
 import {
+  ensureTodayCashSession,
   getCashSessionForDate,
   getExpectedDrawerBalance,
   getPeriodStats,
+  toBusinessDate,
 } from "@/lib/repositories/cash-sessions";
 import { countExpiryAlerts } from "@/lib/repositories/expiry-alerts";
 import { listOffersForProduct } from "@/lib/repositories/offers";
@@ -93,6 +95,10 @@ export type DailyAccounting = {
  * Le fonds de caisse (float) est isole et n'entre pas dans les taux.
  */
 export function getDailyAccounting(date = new Date()): DailyAccounting {
+  // Aligne la session du jour (bascule minuit / report fonds) avant les KPIs
+  if (toBusinessDate(date) === toBusinessDate(new Date())) {
+    ensureTodayCashSession(date);
+  }
   const day = startOfDay(date);
   const { invoices, purchases } = getStore();
   const products = listProducts();

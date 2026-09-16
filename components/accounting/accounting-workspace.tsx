@@ -112,7 +112,7 @@ export function AccountingWorkspace() {
         }
       />
 
-      <CashSessionBar onChanged={bump} />
+      <CashSessionBar variant="accounting" onChanged={bump} />
 
       <p className="text-sm text-muted-foreground print:text-foreground">
         Journee du {formatDayLabel(data.date)}

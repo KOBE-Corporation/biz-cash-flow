@@ -28,30 +28,31 @@ export function getCashSessionForDate(date = new Date()) {
 }
 
 export function getLastClosedSession() {
-  return (
-    listCashSessions().find((s) => s.status === "CLOSED") ?? null
-  );
+  return listCashSessions().find((s) => s.status === "CLOSED") ?? null;
 }
 
-/** Suggestion de fonds pour ouvrir : report du comptage de la veille. */
+export function hasEverHadCashSession() {
+  return getStore().cashSessions.length > 0;
+}
+
+/** Suggestion de fonds : comptage / attendu de la derniere cloture. */
 export function suggestOpeningFloat() {
   const last = getLastClosedSession();
   if (last?.closingCounted != null) return last.closingCounted;
+  const open = getOpenCashSession();
+  if (open) return getExpectedDrawerBalance(open);
   return 0;
 }
 
 /**
  * Solde theorique du tiroir pour une session :
- * openingFloat + mouvements operationnels du jour
- * (FLOAT ledger optionnel deja inclus via openingFloat, pas double-compte).
+ * openingFloat + mouvements operationnels du jour (FLOAT_* exclus).
  */
 export function getExpectedDrawerBalance(session: CashSession, now = new Date()) {
   const day = parseBusinessDate(session.businessDate);
   const ledger = listCashLedgerForDay(day).filter((e) => {
-    // Ne compter que les mouvements pendant la session ouverte
     if (e.occurredAt < session.openedAt) return false;
     if (session.closedAt && e.occurredAt > session.closedAt) return false;
-    // Exclure FLOAT_* du ledger si on utilise openingFloat comme source de verite
     if (e.sourceType === "FLOAT_IN" || e.sourceType === "FLOAT_OUT") return false;
     void now;
     return true;
@@ -60,10 +61,132 @@ export function getExpectedDrawerBalance(session: CashSession, now = new Date())
   return session.openingFloat + ops.operationalNet;
 }
 
+export type EnsureDayResult = {
+  session: CashSession | null;
+  /** Afficher le formulaire d'ouverture (premiere fois seulement). */
+  needsFirstOpen: boolean;
+  /** Une bascule auto minuit a eu lieu. */
+  rolledOver: boolean;
+  /** Message court pour toast (optionnel). */
+  message?: string;
+};
+
+/**
+ * Garantit une session pour la date metier du jour, sans fausser le CA :
+ * - Premiere utilisation → needsFirstOpen (UI fonds initial)
+ * - Session ouverte d'un jour precedent → cloture auto 23:59 + nouvelle journee
+ *   avec l'argent restant comme fonds (hors CA)
+ * - Session du jour deja ouverte → silencieux
+ * - Journee deja cloturee manuellement → pas de reouverture auto
+ */
+export function ensureTodayCashSession(now = new Date()): EnsureDayResult {
+  const today = toBusinessDate(now);
+  const todaySession = getCashSessionForDate(now);
+
+  if (todaySession?.status === "OPEN") {
+    return { session: todaySession, needsFirstOpen: false, rolledOver: false };
+  }
+
+  if (todaySession?.status === "CLOSED") {
+    return {
+      session: todaySession,
+      needsFirstOpen: false,
+      rolledOver: false,
+      message: `Journee ${today} deja cloturee`,
+    };
+  }
+
+  const open = getOpenCashSession();
+  if (open && open.businessDate < today) {
+    const carried = getExpectedDrawerBalance(open, now);
+    const closeAt = new Date(endOfBusinessDay(open.businessDate).getTime() - 1);
+    const closed = closeCashSession({
+      sessionId: open.id,
+      countedCash: carried,
+      notes: "Cloture automatique 23:59 — report fonds en caisse",
+      closedAt: closeAt,
+      auto: true,
+    });
+    if (!closed.ok) {
+      return {
+        session: open,
+        needsFirstOpen: false,
+        rolledOver: false,
+        message: closed.error,
+      };
+    }
+
+    const opened = openCashSession({
+      openingFloat: carried,
+      notes: "Ouverture automatique — fonds reportes (hors CA)",
+      businessDate: now,
+      openedAt: startOfBusinessDay(now),
+      auto: true,
+      carriedFromSessionId: closed.data.id,
+    });
+    if (!opened.ok) {
+      return {
+        session: null,
+        needsFirstOpen: false,
+        rolledOver: true,
+        message: opened.error,
+      };
+    }
+
+    return {
+      session: opened.data,
+      needsFirstOpen: false,
+      rolledOver: true,
+      message: `Nouvelle journee ${today} — fonds reportes ${carried} (hors CA)`,
+    };
+  }
+
+  if (open && open.businessDate === today) {
+    return { session: open, needsFirstOpen: false, rolledOver: false };
+  }
+
+  // Pas de session aujourd'hui : report depuis derniere cloture ?
+  if (!hasEverHadCashSession()) {
+    return { session: null, needsFirstOpen: true, rolledOver: false };
+  }
+
+  const last = getLastClosedSession();
+  const float = last?.closingCounted ?? 0;
+  const opened = openCashSession({
+    openingFloat: float,
+    notes: last
+      ? `Ouverture auto — report ${last.businessDate}`
+      : "Ouverture automatique",
+    businessDate: now,
+    openedAt: startOfBusinessDay(now),
+    auto: true,
+    carriedFromSessionId: last?.id,
+  });
+
+  if (!opened.ok) {
+    return {
+      session: null,
+      needsFirstOpen: true,
+      rolledOver: false,
+      message: opened.error,
+    };
+  }
+
+  return {
+    session: opened.data,
+    needsFirstOpen: false,
+    rolledOver: true,
+    message: `Journee ${today} ouverte — fonds ${float} reportes (hors CA)`,
+  };
+}
+
 export function openCashSession(input: {
   openingFloat: number;
   notes?: string;
   businessDate?: Date;
+  openedAt?: Date;
+  auto?: boolean;
+  carriedFromSessionId?: string;
 }): RepoResult<CashSession> {
   const store = getStore();
   const existingOpen = getOpenCashSession();
@@ -88,6 +211,7 @@ export function openCashSession(input: {
   const float = Math.max(0, Math.round(input.openingFloat));
   const actor = getActor();
   const now = touch();
+  const openedAt = input.openedAt ?? now;
   const last = getLastClosedSession();
 
   const session: CashSession = {
@@ -95,27 +219,30 @@ export function openCashSession(input: {
     businessDate,
     status: "OPEN",
     openingFloat: float,
-    openedAt: now,
+    openedAt,
     openedById: actor.id,
     openedByName: actor.name,
     openingNotes: input.notes?.trim() || undefined,
-    carriedFromSessionId: last?.id,
+    carriedFromSessionId: input.carriedFromSessionId ?? last?.id,
   };
 
   store.cashSessions.unshift(session);
 
-  // Trace ledger FLOAT_IN pour l'audit du tiroir — exclu du CA (voir pnl.ts)
+  // FLOAT_IN : audit tiroir uniquement — exclu du CA / taux (pnl.ts)
+  // Date = debut de journee metier pour ne pas polluer la veille
   if (float > 0) {
     postCashEntry({
       direction: "IN",
       amount: float,
-      label: `Fonds d'ouverture ${businessDate}`,
+      label: input.auto
+        ? `Fonds reportes ${businessDate}`
+        : `Fonds d'ouverture ${businessDate}`,
       description:
-        "Monnaie / report veille — hors CA et hors taux periodiques",
+        "Monnaie en caisse (report) — hors CA et hors taux periodiques",
       sourceType: "FLOAT_IN",
       sourceId: session.id,
       reference: session.id,
-      occurredAt: now,
+      occurredAt: openedAt,
     });
   }
 
@@ -123,8 +250,14 @@ export function openCashSession(input: {
     action: "OPEN_SESSION",
     entityType: "CashSession",
     entityId: session.id,
-    summary: `Ouverture caisse ${businessDate} — fonds ${float}`,
-    metadata: { openingFloat: float, carriedFrom: last?.id },
+    summary: input.auto
+      ? `Ouverture auto caisse ${businessDate} — fonds ${float}`
+      : `Ouverture caisse ${businessDate} — fonds ${float}`,
+    metadata: {
+      openingFloat: float,
+      carriedFrom: session.carriedFromSessionId,
+      auto: !!input.auto,
+    },
   });
 
   return { ok: true, data: session };
@@ -134,6 +267,8 @@ export function closeCashSession(input: {
   sessionId: string;
   countedCash: number;
   notes?: string;
+  closedAt?: Date;
+  auto?: boolean;
 }): RepoResult<CashSession> {
   const store = getStore();
   const index = store.cashSessions.findIndex((s) => s.id === input.sessionId);
@@ -149,20 +284,24 @@ export function closeCashSession(input: {
   const variance = counted - expected;
   const actor = getActor();
   const now = touch();
+  const closedAt = input.closedAt ?? now;
 
-  // FLOAT_OUT = on « sort » le fonds pour le report (hors PnL)
-  // Montant = counted (ce qui reste dans le tiroir pour demain)
+  // FLOAT_OUT = report comptable du tiroir (l'argent reste physiquement).
+  // Date = fin de journee metier pour rester dans les comptes du bon jour,
+  // sans entrer dans le CA (filtre FLOAT_*).
   if (counted > 0) {
     postCashEntry({
       direction: "OUT",
       amount: counted,
-      label: `Fonds de cloture ${current.businessDate}`,
+      label: input.auto
+        ? `Report fonds ${current.businessDate}`
+        : `Fonds de cloture ${current.businessDate}`,
       description:
-        "Report monnaie pour le lendemain — hors CA et hors taux",
+        "Argent restant en caisse pour le lendemain — hors CA / hors taux",
       sourceType: "FLOAT_OUT",
       sourceId: current.id,
       reference: current.id,
-      occurredAt: now,
+      occurredAt: closedAt,
     });
   }
 
@@ -172,7 +311,7 @@ export function closeCashSession(input: {
     closingCounted: counted,
     expectedAtClose: expected,
     variance,
-    closedAt: now,
+    closedAt,
     closedById: actor.id,
     closedByName: actor.name,
     closingNotes: input.notes?.trim() || undefined,
@@ -183,8 +322,10 @@ export function closeCashSession(input: {
     action: "CLOSE_SESSION",
     entityType: "CashSession",
     entityId: updated.id,
-    summary: `Cloture caisse ${updated.businessDate} — ecart ${variance}`,
-    metadata: { counted, expected, variance },
+    summary: input.auto
+      ? `Cloture auto ${updated.businessDate} — report ${counted}`
+      : `Cloture caisse ${updated.businessDate} — ecart ${variance}`,
+    metadata: { counted, expected, variance, auto: !!input.auto },
   });
 
   return { ok: true, data: updated };
@@ -203,7 +344,7 @@ export function getPeriodRange(period: PeriodKey, anchor = new Date()) {
   }
 
   if (period === "week") {
-    const day = (start.getDay() + 6) % 7; // lundi = 0
+    const day = (start.getDay() + 6) % 7;
     start.setDate(start.getDate() - day);
     end.setTime(start.getTime());
     end.setDate(end.getDate() + 7);
@@ -229,7 +370,6 @@ export function getPeriodRange(period: PeriodKey, anchor = new Date()) {
     return { start, end, label: `T${q + 1} ${start.getFullYear()}` };
   }
 
-  // year
   start.setMonth(0, 1);
   end.setTime(start.getTime());
   end.setFullYear(end.getFullYear() + 1);
@@ -238,7 +378,7 @@ export function getPeriodRange(period: PeriodKey, anchor = new Date()) {
 
 /**
  * KPIs periodiques : uniquement mouvements operationnels + ventes payees.
- * Le float n'entre jamais dans les taux.
+ * Le float n'entre jamais dans les taux (pas de duplication jour → semaine).
  */
 export function getPeriodStats(period: PeriodKey, anchor = new Date()) {
   const { start, end, label } = getPeriodRange(period, anchor);
@@ -281,9 +421,7 @@ export function getPeriodStats(period: PeriodKey, anchor = new Date()) {
     operationalIn: ops.operationalIn,
     operationalOut: ops.operationalOut,
     operationalNet: ops.operationalNet,
-    /** Taux / rythme : CA moyen par jour sur la periode. */
     avgDailySales: Math.round(avgDailySales),
-    /** Ne pas utiliser float pour les taux. */
     floatExcluded: true as const,
     sessionsCount: sessions.length,
     openSessions: sessions.filter((s) => s.status === "OPEN").length,
@@ -291,23 +429,21 @@ export function getPeriodStats(period: PeriodKey, anchor = new Date()) {
 }
 
 export function requireOpenSessionForSale(): RepoResult<CashSession> {
-  const open = getOpenCashSession();
-  if (!open) {
+  const ensured = ensureTodayCashSession();
+  if (ensured.needsFirstOpen || !ensured.session) {
     return {
       ok: false,
       error:
-        "Aucune session de caisse ouverte. Ouvrez la journee (avec fonds monnaie) avant de vendre.",
+        "Premiere utilisation : definissez le fonds monnaie initial (Comptabilite ou barre caisse).",
     };
   }
-  const today = toBusinessDate(new Date());
-  if (open.businessDate !== today) {
+  if (ensured.session.status !== "OPEN") {
     return {
       ok: false,
-      error: `Session ouverte pour ${open.businessDate}. Cloturez-la puis ouvrez ${today}.`,
+      error: `Journee ${ensured.session.businessDate} cloturee. Reouverture demain (report auto des fonds).`,
     };
   }
-  return { ok: true, data: open };
+  return { ok: true, data: ensured.session };
 }
 
-// re-export helpers used by UI
 export { startOfBusinessDay, endOfBusinessDay, toBusinessDate };

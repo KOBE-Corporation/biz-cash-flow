@@ -10,7 +10,6 @@ import { CashSessionBar } from "@/components/accounting/cash-session-bar";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { ToastViewport } from "@/components/ui/toast";
 import { useSaleWorkspace } from "@/hooks/use-sale-workspace";
-import { getOpenCashSession } from "@/lib/repositories/cash-sessions";
 
 export function SalesWorkspace() {
   const {
@@ -31,12 +30,10 @@ export function SalesWorkspace() {
     prepareAmountThenFocusValidate,
   } = useSaleWorkspace();
 
-  const sessionOpen = !!getOpenCashSession();
-
   return (
     <>
       <div className="mb-2">
-        <CashSessionBar compact={!sessionOpen} />
+        <CashSessionBar variant="sales" />
       </div>
 
       <div className="relative grid min-h-0 w-full min-w-0 grid-cols-1 gap-2 max-md:auto-rows-auto md:h-[calc(100%-4.5rem)] md:flex-1 md:grid-cols-[minmax(0,4fr)_minmax(0,3fr)_minmax(0,3fr)] md:overflow-hidden">
