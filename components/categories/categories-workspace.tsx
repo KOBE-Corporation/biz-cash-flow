@@ -1,18 +1,21 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import Link from "next/link";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { DataTable, type DataColumn } from "@/components/crud/data-table";
 import { FormDialog } from "@/components/crud/form-dialog";
 import { CrudToolbar } from "@/components/crud/toolbar";
+import { InsightsHighlights } from "@/components/shared/insights-highlights";
 import { PackLevelsEditor } from "@/components/shared/pack-levels-editor";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader, StatCard } from "@/components/ui/page-header";
 import { ToastViewport, useToast } from "@/components/ui/toast";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
+import { useBcfRefresh } from "@/hooks/use-bcf-refresh";
 import { useEntityList } from "@/hooks/use-entity-list";
 import {
   DEFAULT_CATEGORY_TRACKING,
@@ -25,8 +28,10 @@ import {
   removeCategory,
   updateCategory,
 } from "@/lib/repositories/categories";
+import { getCategoryInsights } from "@/lib/repositories/insights";
 import { createPackLevelId } from "@/lib/sales/pricing";
 import type { Category, CategoryTracking, PackLevelTemplate } from "@/lib/types";
+import { cn, formatCurrency } from "@/lib/utils";
 
 type CategoryFormState = {
   name: string;
@@ -68,14 +73,44 @@ function trackingSummary(tracking: CategoryTracking) {
 export function CategoriesWorkspace() {
   const { confirm, dialog } = useConfirmDialog();
   const { toast, showToast } = useToast();
-  const [version, setVersion] = useState(0);
+  const { version, bump, mounted } = useBcfRefresh();
   const [form, setForm] = useState<CategoryFormState>(emptyForm);
   const [error, setError] = useState<string | null>(null);
 
   const items = useMemo(() => {
+    if (!mounted) return [];
     void version;
     return listCategories();
-  }, [version]);
+  }, [version, mounted]);
+
+  const insights = useMemo(() => {
+    if (!mounted) return null;
+    void version;
+    return getCategoryInsights();
+  }, [version, mounted]);
+
+  const flagshipIds = useMemo(
+    () => new Set(insights?.flagshipCategoryIds ?? []),
+    [insights],
+  );
+
+  const rankById = useMemo(() => {
+    const map = new Map(
+      (insights?.topCategories ?? []).map((c) => [c.categoryId, c]),
+    );
+    for (const c of insights?.bottomCategories ?? []) {
+      if (!map.has(c.categoryId)) map.set(c.categoryId, c);
+    }
+    // Inclure toutes les categories avec stats stock meme a 0 CA
+    for (const cat of items) {
+      if (map.has(cat.id)) continue;
+      const fromAll = insights?.bottomCategories.find(
+        (c) => c.categoryId === cat.id,
+      );
+      if (fromAll) map.set(cat.id, fromAll);
+    }
+    return map;
+  }, [insights, items]);
 
   const filterFn = useCallback((item: Category, query: string) => {
     const q = query.trim().toLowerCase();
@@ -95,6 +130,10 @@ export function CategoriesWorkspace() {
       item.tracking?.tracksManufacturedAt ||
       item.tracking?.tracksBatchNumber ||
       item.tracking?.tracksSerialNumber,
+  ).length;
+  const phareCount = flagshipIds.size;
+  const alertCats = [...rankById.values()].filter(
+    (c) => c.lowStockCount + c.outOfStockCount > 0,
   ).length;
 
   const openCreate = () => {
@@ -149,7 +188,7 @@ export function CategoriesWorkspace() {
       return;
     }
     list.closeForm();
-    setVersion((value) => value + 1);
+    bump();
     showToast(
       list.editing ? "Categorie mise a jour" : "Categorie creee",
       "success",
@@ -169,7 +208,7 @@ export function CategoriesWorkspace() {
       showToast(result.error, "error");
       return;
     }
-    setVersion((value) => value + 1);
+    bump();
     showToast(`« ${item.name} » supprimee`, "success");
   };
 
@@ -179,7 +218,14 @@ export function CategoriesWorkspace() {
       header: "Nom",
       cell: (row) => (
         <div className="min-w-0">
-          <p className="truncate font-medium text-foreground">{row.name}</p>
+          <p className="truncate font-medium text-foreground">
+            {row.name}
+            {flagshipIds.has(row.id) ? (
+              <Badge variant="success" className="ml-1.5 align-middle">
+                Phare
+              </Badge>
+            ) : null}
+          </p>
           {row.description ? (
             <p className="truncate text-xs text-muted-foreground">
               {row.description}
@@ -213,9 +259,39 @@ export function CategoriesWorkspace() {
     {
       key: "products",
       header: "Produits",
-      cell: (row) => (
-        <span className="tabular-nums">{countProductsInCategory(row.id)}</span>
-      ),
+      cell: (row) => {
+        const rank = rankById.get(row.id);
+        return (
+          <div className="text-xs tabular-nums">
+            <p>{countProductsInCategory(row.id)}</p>
+            {rank ? (
+              <p className="text-muted-foreground">
+                {rank.outOfStockCount + rank.lowStockCount > 0
+                  ? `${rank.outOfStockCount + rank.lowStockCount} alerte(s)`
+                  : "stock OK"}
+              </p>
+            ) : null}
+          </div>
+        );
+      },
+    },
+    {
+      key: "sales",
+      header: "CA jour",
+      cell: (row) => {
+        const rank = rankById.get(row.id);
+        if (!rank) {
+          return <span className="text-xs text-muted-foreground">—</span>;
+        }
+        return (
+          <div className="text-right text-xs">
+            <p className="font-medium tabular-nums">
+              {formatCurrency(rank.revenue)}
+            </p>
+            <p className="text-muted-foreground">{rank.sharePercent} %</p>
+          </div>
+        );
+      },
     },
     {
       key: "status",
@@ -259,24 +335,53 @@ export function CategoriesWorkspace() {
     <div className="space-y-6">
       <PageHeader
         title="Categories"
-        description="Unite de base, conditionnements, et politique de suivi (dates, lots, alertes)."
+        description="Familles produits, conditionnements, suivi date/lot, et categories phares du jour."
         actions={
-          <Button variant="success" onClick={openCreate}>
-            <Plus className="h-4 w-4" />
-            Nouvelle categorie
-          </Button>
+          <>
+            <Link
+              href="/produits"
+              className={cn(buttonVariants({ variant: "outline" }))}
+            >
+              Produits
+            </Link>
+            <Button variant="success" onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              Nouvelle categorie
+            </Button>
+          </>
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Categories" value={items.length} />
         <StatCard title="Actives" value={activeCount} variant="success" />
+        <StatCard
+          title="Phares du jour"
+          value={phareCount}
+          subtitle={
+            insights?.topCategories[0]
+              ? insights.topCategories[0].name
+              : "Aucune vente"
+          }
+          variant="success"
+        />
         <StatCard
           title="Avec suivi date/lot"
           value={trackedCount}
           variant="warning"
+          subtitle={
+            alertCats > 0 ? `${alertCats} famille(s) en alerte stock` : undefined
+          }
         />
       </div>
+
+      {insights ? (
+        <InsightsHighlights
+          insights={insights}
+          title="Highlights categories & ventes"
+          compact
+        />
+      ) : null}
 
       <CrudToolbar
         search={list.search}

@@ -1,7 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { Crown, Package, TrendingDown, TrendingUp, User } from "lucide-react";
+import {
+  CreditCard,
+  Crown,
+  Layers,
+  Package,
+  Receipt,
+  TrendingDown,
+  TrendingUp,
+  User,
+  Wallet,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -10,6 +20,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { PeriodInsights } from "@/lib/repositories/insights";
+import { paymentMethodLabels } from "@/lib/sales/cart";
 import { formatCurrency } from "@/lib/utils";
 
 type InsightsHighlightsProps = {
@@ -17,6 +28,7 @@ type InsightsHighlightsProps = {
   title?: string;
   showStock?: boolean;
   compact?: boolean;
+  showBusinessKpis?: boolean;
 };
 
 export function InsightsHighlights({
@@ -24,8 +36,10 @@ export function InsightsHighlights({
   title = "Highlights",
   showStock = true,
   compact = false,
+  showBusinessKpis = true,
 }: InsightsHighlightsProps) {
   const top = insights.topProducts[0];
+  const topCategory = insights.topCategories[0];
   const lowSold =
     insights.bottomProducts[0] ??
     (insights.unsoldProducts[0]
@@ -46,12 +60,85 @@ export function InsightsHighlights({
         </div>
       ) : null}
 
+      {showBusinessKpis ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Receipt className="h-4 w-4 text-primary" />
+                Ticket moyen
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="font-semibold tabular-nums">
+                {formatCurrency(insights.avgTicket)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {insights.salesCount} ticket(s)
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <TrendingUp className="h-4 w-4 text-success" />
+                Marge estimee
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="font-semibold tabular-nums">
+                {formatCurrency(insights.estimatedMargin)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {insights.marginPercent} % du CA
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Wallet className="h-4 w-4 text-warning" />
+                Impayes clients
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="font-semibold tabular-nums">
+                {formatCurrency(insights.unpaidTotal)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {insights.unpaidCount} facture(s)
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Package className="h-4 w-4 text-destructive" />
+                Alertes stock
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="font-semibold tabular-nums">
+                {insights.outOfStockCount + insights.lowStockCount}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {insights.outOfStockCount} rupture · {insights.lowStockCount}{" "}
+                faible
+                {insights.inactiveProductCount > 0
+                  ? ` · ${insights.inactiveProductCount} inactif(s)`
+                  : ""}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
               <Crown className="h-4 w-4 text-warning" />
-              Plus vendu
+              Produit phare
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -60,9 +147,35 @@ export function InsightsHighlights({
                 <p className="truncate font-semibold">{top.name}</p>
                 <p className="text-xs text-muted-foreground">
                   {top.qtySold} u. · {formatCurrency(top.revenue)}
+                  {top.categoryName ? ` · ${top.categoryName}` : ""}
                 </p>
                 <Badge variant="success" className="mt-2">
-                  Produit phare
+                  Phare
+                </Badge>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">Aucune vente</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Layers className="h-4 w-4 text-primary" />
+              Categorie phare
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {topCategory ? (
+              <>
+                <p className="truncate font-semibold">{topCategory.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formatCurrency(topCategory.revenue)} ·{" "}
+                  {topCategory.sharePercent} % du CA
+                </p>
+                <Badge variant="success" className="mt-2">
+                  Famille phare
                 </Badge>
               </>
             ) : (
@@ -95,90 +208,152 @@ export function InsightsHighlights({
         </Card>
 
         {showStock ? (
-          <>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <Package className="h-4 w-4 text-success" />
-                  Plus en stock
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {insights.mostInStock ? (
-                  <>
-                    <p className="truncate font-semibold">
-                      {insights.mostInStock.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {insights.mostInStock.quantity} u.
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">—</p>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <Package className="h-4 w-4 text-warning" />
-                  Moins en stock
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {insights.leastInStock ? (
-                  <>
-                    <p className="truncate font-semibold">
-                      {insights.leastInStock.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {insights.leastInStock.quantity} u.
-                    </p>
-                    <Link
-                      href="/produits?filter=low"
-                      className="mt-2 inline-block text-xs text-primary hover:underline"
-                    >
-                      Voir stock
-                    </Link>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">—</p>
-                )}
-              </CardContent>
-            </Card>
-          </>
-        ) : null}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Package className="h-4 w-4 text-warning" />
+                Moins en stock
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {insights.leastInStock ? (
+                <>
+                  <p className="truncate font-semibold">
+                    {insights.leastInStock.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {insights.leastInStock.quantity} u.
+                  </p>
+                  <Link
+                    href="/produits?filter=low"
+                    className="mt-2 inline-block text-xs text-primary hover:underline"
+                  >
+                    Voir stock
+                  </Link>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">—</p>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <User className="h-4 w-4 text-primary" />
+                Meilleur vendeur
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {topSeller ? (
+                <>
+                  <p className="truncate font-semibold">{topSeller.userName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {topSeller.salesCount} vente(s) ·{" "}
+                    {formatCurrency(topSeller.salesTotal)}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">Aucune vente</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-            <User className="h-4 w-4 text-primary" />
-            Meilleur vendeur
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {topSeller ? (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="font-semibold">{topSeller.userName}</p>
-                <p className="text-xs text-muted-foreground">
-                  {topSeller.salesCount} vente(s)
+      {showStock ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <User className="h-4 w-4 text-primary" />
+              Meilleur vendeur
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {topSeller ? (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-semibold">{topSeller.userName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {topSeller.salesCount} vente(s)
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold tabular-nums text-success">
+                    {formatCurrency(topSeller.salesTotal)}
+                  </p>
+                  <Badge variant="success">Top caissier</Badge>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Aucune vente</p>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {insights.paymentMix.length > 0 ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <CreditCard className="h-4 w-4 text-primary" />
+              Mix paiements
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {insights.paymentMix.map((row) => (
+              <div
+                key={row.method}
+                className="rounded-lg bg-surface-2 px-3 py-2 text-sm"
+              >
+                <p className="font-medium">{paymentMethodLabels[row.method]}</p>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {row.count} · {formatCurrency(row.total)} · {row.sharePercent}{" "}
+                  %
                 </p>
               </div>
-              <div className="text-right">
-                <p className="font-semibold tabular-nums text-success">
-                  {formatCurrency(topSeller.salesTotal)}
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {!compact && insights.topCategories.length > 0 ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <Layers className="h-4 w-4 text-primary" />
+              Classement categories phares
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {insights.topCategories.slice(0, 5).map((c, i) => (
+              <div
+                key={c.categoryId}
+                className="flex items-center justify-between gap-3 rounded-lg bg-surface-2 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">
+                    <span className="mr-2 text-muted-foreground">{i + 1}.</span>
+                    {c.name}
+                    {i < 3 ? (
+                      <Badge variant="success" className="ml-2">
+                        Phare
+                      </Badge>
+                    ) : null}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {c.qtySold} u. · {c.sharePercent} % CA · stock bas{" "}
+                    {c.lowStockCount + c.outOfStockCount}
+                  </p>
+                </div>
+                <p className="shrink-0 text-sm font-semibold tabular-nums">
+                  {formatCurrency(c.revenue)}
                 </p>
-                <Badge variant="success">Top caissier</Badge>
               </div>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Aucune vente</p>
-          )}
-        </CardContent>
-      </Card>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
 
       {!compact && insights.topProducts.length > 0 ? (
         <Card>
@@ -206,6 +381,7 @@ export function InsightsHighlights({
                   </p>
                   <p className="text-[11px] text-muted-foreground">
                     {p.qtySold} u. · stock {p.stockQty}
+                    {p.categoryName ? ` · ${p.categoryName}` : ""}
                   </p>
                 </div>
                 <p className="shrink-0 text-sm font-semibold tabular-nums">

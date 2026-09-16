@@ -4,6 +4,7 @@ import {
   getPeriodInsights,
   type PeriodInsights,
 } from "@/lib/repositories/insights";
+import { paymentMethodLabels } from "@/lib/sales/cart";
 import { formatCurrency } from "@/lib/utils";
 
 const PERIOD_TITLES: Record<PeriodKey, string> = {
@@ -85,6 +86,33 @@ export function buildPeriodReportHtml(insights: PeriodInsights) {
     )
     .join("");
 
+  const categoryRows = insights.topCategories
+    .map(
+      (c, i) =>
+        `<tr>
+          <td>${i + 1}</td>
+          <td>${escapeHtml(c.name)}${i < 3 ? ' <span class="badge">Phare</span>' : ""}</td>
+          <td class="num">${c.qtySold}</td>
+          <td class="num">${formatCurrency(c.revenue)}</td>
+          <td class="num">${c.sharePercent} %</td>
+          <td class="num">${formatCurrency(c.estimatedGain)}</td>
+          <td class="num">${c.lowStockCount + c.outOfStockCount}</td>
+        </tr>`,
+    )
+    .join("");
+
+  const paymentRows = insights.paymentMix
+    .map(
+      (p) =>
+        `<tr>
+          <td>${escapeHtml(paymentMethodLabels[p.method])}</td>
+          <td class="num">${p.count}</td>
+          <td class="num">${formatCurrency(p.total)}</td>
+          <td class="num">${p.sharePercent} %</td>
+        </tr>`,
+    )
+    .join("");
+
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -142,10 +170,20 @@ export function buildPeriodReportHtml(insights: PeriodInsights) {
 
   <div class="kpis">
     <div class="kpi"><div class="label">CA encaisse</div><div class="value">${formatCurrency(insights.salesTotal)}</div><div class="sub">${insights.salesCount} ticket(s)</div></div>
-    <div class="kpi"><div class="label">Net caisse</div><div class="value">${formatCurrency(insights.operationalNet)}</div><div class="sub">Hors float</div></div>
-    <div class="kpi"><div class="label">Marge estimee</div><div class="value">${formatCurrency(insights.estimatedMargin)}</div><div class="sub">CA − cout revient</div></div>
-    <div class="kpi"><div class="label">CA moyen / jour</div><div class="value">${formatCurrency(insights.avgDailySales)}</div><div class="sub">Sur la periode</div></div>
+    <div class="kpi"><div class="label">Ticket moyen</div><div class="value">${formatCurrency(insights.avgTicket)}</div><div class="sub">Par vente</div></div>
+    <div class="kpi"><div class="label">Marge estimee</div><div class="value">${formatCurrency(insights.estimatedMargin)}</div><div class="sub">${insights.marginPercent} % du CA</div></div>
+    <div class="kpi"><div class="label">CA moyen / jour</div><div class="value">${formatCurrency(insights.avgDailySales)}</div><div class="sub">Net caisse ${formatCurrency(insights.operationalNet)}</div></div>
   </div>
+
+  <h2>Categories phares</h2>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Categorie</th><th class="num">Qte</th><th class="num">CA</th><th class="num">Part</th><th class="num">Gain</th><th class="num">Alertes stock</th></tr>
+    </thead>
+    <tbody>
+      ${categoryRows || `<tr><td colspan="7">Aucune vente sur la periode</td></tr>`}
+    </tbody>
+  </table>
 
   <h2>Produits phares</h2>
   <table>
@@ -174,17 +212,38 @@ export function buildPeriodReportHtml(insights: PeriodInsights) {
     </div>
   </div>
 
-  <h2>Stock</h2>
-  <div class="kpis" style="grid-template-columns: 1fr 1fr;">
-    <div class="kpi">
-      <div class="label">Plus en stock</div>
-      <div class="value" style="font-size:15px">${insights.mostInStock ? escapeHtml(insights.mostInStock.name) : "—"}</div>
-      <div class="sub">${insights.mostInStock ? `${insights.mostInStock.quantity} u.` : ""}</div>
+  <div class="two">
+    <div>
+      <h2>Mix paiements</h2>
+      <table>
+        <thead><tr><th>Mode</th><th class="num">Tickets</th><th class="num">CA</th><th class="num">Part</th></tr></thead>
+        <tbody>${paymentRows || `<tr><td colspan="4">—</td></tr>`}</tbody>
+      </table>
     </div>
-    <div class="kpi">
-      <div class="label">Moins en stock</div>
-      <div class="value" style="font-size:15px">${insights.leastInStock ? escapeHtml(insights.leastInStock.name) : "—"}</div>
-      <div class="sub">${insights.leastInStock ? `${insights.leastInStock.quantity} u.` : ""}</div>
+    <div>
+      <h2>Stock & creances</h2>
+      <div class="kpis" style="grid-template-columns: 1fr 1fr;">
+        <div class="kpi">
+          <div class="label">Plus en stock</div>
+          <div class="value" style="font-size:15px">${insights.mostInStock ? escapeHtml(insights.mostInStock.name) : "—"}</div>
+          <div class="sub">${insights.mostInStock ? `${insights.mostInStock.quantity} u.` : ""}</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Moins en stock</div>
+          <div class="value" style="font-size:15px">${insights.leastInStock ? escapeHtml(insights.leastInStock.name) : "—"}</div>
+          <div class="sub">${insights.leastInStock ? `${insights.leastInStock.quantity} u.` : ""}</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Alertes stock</div>
+          <div class="value" style="font-size:15px">${insights.outOfStockCount + insights.lowStockCount}</div>
+          <div class="sub">${insights.outOfStockCount} rupture · ${insights.lowStockCount} faible</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Impayes clients</div>
+          <div class="value" style="font-size:15px">${formatCurrency(insights.unpaidTotal)}</div>
+          <div class="sub">${insights.unpaidCount} facture(s)</div>
+        </div>
+      </div>
     </div>
   </div>
 
