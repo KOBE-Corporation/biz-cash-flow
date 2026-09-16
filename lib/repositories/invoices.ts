@@ -143,14 +143,6 @@ function restoreStockFromItems(
   return { ok: true, data: true };
 }
 
-function restoreStockFromInvoice(invoice: Invoice): RepoResult<true> {
-  return restoreStockFromItems(
-    invoice.items,
-    invoice.number,
-    "Annulation vente — retour stock",
-  );
-}
-
 /**
  * Enregistre un encaissement (total ou partiel) sur une facture a credit / partielle.
  */

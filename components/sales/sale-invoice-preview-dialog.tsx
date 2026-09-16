@@ -67,12 +67,15 @@ export function SaleInvoicePreviewDialog({
   const discountAmount = resolveDiscountAmount(subtotal, discount, discountMode);
   const total = getCartTotal(lines, discount, discountMode);
   const isCash = paymentMethod === "CASH";
+  const isCredit = paymentMethod === "CREDIT";
   const change = isCash ? getChangeDue(total, amountReceived) : 0;
-  const received = isCash
-    ? amountReceived > 0
-      ? amountReceived
-      : total
-    : total;
+  const received = isCredit
+    ? 0
+    : isCash
+      ? amountReceived > 0
+        ? amountReceived
+        : total
+      : total;
 
   const handleConfirm = useCallback(async () => {
     if (confirmingRef.current || loading) return;
@@ -220,10 +223,18 @@ export function SaleInvoicePreviewDialog({
                 </div>
               </>
             ) : null}
+            {isCredit ? (
+              <div className="flex justify-between gap-3 text-warning">
+                <span>A devoir (credit)</span>
+                <span className="tabular-nums">{formatCurrency(total)}</span>
+              </div>
+            ) : null}
           </div>
 
           <p className="pt-1 text-center text-[11px] text-muted-foreground">
-            Merci pour votre achat
+            {isCredit
+              ? "Vente a credit — reglement ulterieur"
+              : "Merci pour votre achat"}
           </p>
         </div>
       </div>

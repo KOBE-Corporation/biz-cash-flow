@@ -152,7 +152,7 @@ export function CheckoutPanel({
         ) : null}
 
         {isCredit ? (
-          <p className="rounded-lg bg-warning/10 px-2.5 py-2 text-[11px] text-warning-foreground">
+          <p className="rounded-lg bg-warning/10 px-2.5 py-2 text-[11px] text-warning">
             Vente a credit : stock sorti, aucun encaissement. Le client devra
             regler plus tard (Factures → Impayees).
           </p>

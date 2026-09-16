@@ -48,10 +48,11 @@ assert(
 );
 
 const inv = sale.data.invoice;
-const cancel = cancelInvoice(inv.id);
+const cancel = cancelInvoice(inv.id, "Smoke test annulation");
 assert(cancel.ok, `cancelInvoice: ${!cancel.ok ? cancel.error : ""}`);
 assert(cancel.data.status === "CANCELLED", "Statut non CANCELLED");
 assert(cancel.data.cancelledByName, "cancelledByName manquant");
+assert(cancel.data.cancelReason, "cancelReason manquant");
 
 const afterCancel = getProduct(p.id);
 assert(afterCancel, "Produit introuvable apres annulation");

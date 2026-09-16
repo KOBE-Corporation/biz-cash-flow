@@ -104,7 +104,11 @@ Achat frequent en casier ; revente a l’unite ou au casier.
 - [ ] Scan code-barres → ajout panier (clavier / lecteur USB wedge)
 - [ ] Recherche produit par barcode / SKU / nom unifiee
 - [ ] Remises avancees (ligne + panier + motif)
-- [ ] Annulation / avoir partiel sur facture
+- [x] Annulation / avoir partiel sur facture
+- [x] Vente a credit (avoir client) + encaissement / relance WhatsApp
+- [x] Motif obligatoire a l'annulation de facture
+- [x] Partage facture (impression/PDF, WhatsApp, email)
+- [x] Filtres factures : caissier + periode + impayees
 - [ ] Sessions de caisse (ouverture / fermeture / ecart)
 - [ ] Compte de caisse du jour imprimable (PDF)
 - [ ] Alertes stock sur dashboard + badge nav

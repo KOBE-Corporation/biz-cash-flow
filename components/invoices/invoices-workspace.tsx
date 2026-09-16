@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Printer } from "lucide-react";
+import { Mail, MessageCircle, Printer } from "lucide-react";
 import { DataTable, type DataColumn } from "@/components/crud/data-table";
 import { FormDialog } from "@/components/crud/form-dialog";
 import { CrudToolbar } from "@/components/crud/toolbar";
@@ -18,23 +18,28 @@ import { useEntityList } from "@/hooks/use-entity-list";
 import { siteConfig } from "@/lib/constants/site";
 import { paymentMethodLabels } from "@/lib/sales/cart";
 import {
+  buildInvoiceSharePayload,
   cancelInvoice,
   countInvoicesByStatus,
+  createCreditNote,
+  getInvoiceBalance,
+  isInvoiceOpen,
+  listCreditNotes,
+  listInvoiceIssuers,
   listInvoices,
-  setInvoiceStatus,
+  markInvoiceReminder,
+  recordInvoicePayment,
+  statusLabel,
   updateInvoiceNotes,
 } from "@/lib/repositories/invoices";
-import type { Invoice, InvoiceStatus } from "@/lib/types";
+import type { Invoice, InvoiceStatus, PaymentMethod } from "@/lib/types";
 import { cn, formatCurrency } from "@/lib/utils";
 
-const statusLabels: Record<InvoiceStatus, string> = {
-  DRAFT: "Brouillon",
-  SENT: "Envoyee",
-  PAID: "Payee",
-  CANCELLED: "Annulee",
-};
-
-type StatusFilter = InvoiceStatus | "all" | "today";
+type StatusFilter =
+  | InvoiceStatus
+  | "all"
+  | "today"
+  | "unpaid";
 
 function isSameDay(a: Date, b: Date) {
   return (
@@ -42,6 +47,18 @@ function isSameDay(a: Date, b: Date) {
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate()
   );
+}
+
+function startOfDay(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function endOfDay(d: Date) {
+  const x = new Date(d);
+  x.setHours(23, 59, 59, 999);
+  return x;
 }
 
 function formatIssuedAt(date: Date) {
@@ -54,13 +71,27 @@ function formatIssuedAt(date: Date) {
   return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
 
+function toInputDate(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function InvoicesWorkspace() {
-  const { confirm, dialog } = useConfirmDialog();
+  const { dialog } = useConfirmDialog();
   const { toast, showToast } = useToast();
   const [version, setVersion] = useState(0);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [issuerFilter, setIssuerFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [selected, setSelected] = useState<Invoice | null>(null);
   const [notes, setNotes] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [payAmount, setPayAmount] = useState("");
+  const [payMethod, setPayMethod] = useState<PaymentMethod>("CASH");
+  const [creditAmount, setCreditAmount] = useState("");
+  const [creditReason, setCreditReason] = useState("");
+  const [creditOpen, setCreditOpen] = useState(false);
 
   const items = useMemo(() => {
     void version;
@@ -71,6 +102,17 @@ export function InvoicesWorkspace() {
     void version;
     return countInvoicesByStatus();
   }, [version]);
+
+  const issuers = useMemo(() => {
+    void version;
+    return listInvoiceIssuers();
+  }, [version]);
+
+  const creditNotes = useMemo(() => {
+    void version;
+    if (!selected) return [];
+    return listCreditNotes(selected.id);
+  }, [version, selected]);
 
   const todayPaid = useMemo(() => {
     const today = new Date();
@@ -88,11 +130,13 @@ export function InvoicesWorkspace() {
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("bcf:sale-completed", refresh);
     window.addEventListener("bcf:invoice-cancelled", refresh);
+    window.addEventListener("bcf:invoice-paid", refresh);
     return () => {
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("bcf:sale-completed", refresh);
       window.removeEventListener("bcf:invoice-cancelled", refresh);
+      window.removeEventListener("bcf:invoice-paid", refresh);
     };
   }, []);
 
@@ -100,9 +144,25 @@ export function InvoicesWorkspace() {
     (item: Invoice, query: string) => {
       if (statusFilter === "today") {
         if (!isSameDay(new Date(item.issuedAt), new Date())) return false;
+      } else if (statusFilter === "unpaid") {
+        if (!isInvoiceOpen(item)) return false;
       } else if (statusFilter !== "all" && item.status !== statusFilter) {
         return false;
       }
+
+      if (issuerFilter !== "all" && item.issuedById !== issuerFilter) {
+        return false;
+      }
+
+      if (dateFrom) {
+        const from = startOfDay(new Date(dateFrom));
+        if (new Date(item.issuedAt) < from) return false;
+      }
+      if (dateTo) {
+        const to = endOfDay(new Date(dateTo));
+        if (new Date(item.issuedAt) > to) return false;
+      }
+
       const q = query.trim().toLowerCase();
       if (!q) return true;
       return (
@@ -113,7 +173,7 @@ export function InvoicesWorkspace() {
           paymentMethodLabels[item.paymentMethod].toLowerCase().includes(q))
       );
     },
-    [statusFilter],
+    [statusFilter, issuerFilter, dateFrom, dateTo],
   );
 
   const list = useEntityList(items, filterFn);
@@ -122,9 +182,30 @@ export function InvoicesWorkspace() {
     setStatusFilter((prev) => (prev === value ? "all" : value));
   };
 
+  const setTodayPeriod = () => {
+    const today = toInputDate(new Date());
+    setDateFrom(today);
+    setDateTo(today);
+    setStatusFilter("today");
+  };
+
+  const clearPeriod = () => {
+    setDateFrom("");
+    setDateTo("");
+    if (statusFilter === "today") setStatusFilter("all");
+  };
+
   const openDetail = (invoice: Invoice) => {
     setSelected(invoice);
     setNotes(invoice.notes ?? "");
+    setCancelReason("");
+    setCancelOpen(false);
+    setCreditOpen(false);
+    setCreditAmount("");
+    setCreditReason("");
+    const balance = getInvoiceBalance(invoice);
+    setPayAmount(balance > 0 ? String(balance) : "");
+    setPayMethod("CASH");
   };
 
   const saveNotes = () => {
@@ -139,26 +220,20 @@ export function InvoicesWorkspace() {
     }
   };
 
-  const handleCancel = async () => {
+  const handleCancel = () => {
     if (!selected || selected.status === "CANCELLED") return;
-    const ok = await confirm({
-      title: `Annuler ${selected.number} ?`,
-      description:
-        selected.status === "PAID"
-          ? `Le montant ${formatCurrency(selected.totalAmount)} sera rembourse en caisse et le stock des articles sera restocke.`
-          : `La facture passera au statut Annulee.`,
-      confirmLabel: "Confirmer l'annulation",
-      variant: "destructive",
-    });
-    if (!ok) return;
-
-    const result = cancelInvoice(selected.id);
+    const reason = cancelReason.trim();
+    if (reason.length < 3) {
+      showToast("Motif d'annulation obligatoire (3 car. min.)", "error");
+      return;
+    }
+    const result = cancelInvoice(selected.id, reason);
     if (!result.ok) {
       showToast(result.error, "error");
       return;
     }
-
     setSelected(result.data);
+    setCancelOpen(false);
     setVersion((v) => v + 1);
     showToast(
       `Facture ${result.data.number} annulee — caisse + stock mis a jour`,
@@ -171,22 +246,85 @@ export function InvoicesWorkspace() {
     );
   };
 
-  const markPaid = async () => {
-    if (!selected || selected.status === "PAID" || selected.status === "CANCELLED") {
-      return;
-    }
-    const result = setInvoiceStatus(selected.id, "PAID");
+  const handlePayment = () => {
+    if (!selected) return;
+    const amount = Math.round(Number(payAmount) || 0);
+    const result = recordInvoicePayment(selected.id, amount, payMethod);
     if (!result.ok) {
       showToast(result.error, "error");
       return;
     }
     setSelected(result.data);
     setVersion((v) => v + 1);
-    showToast(`Facture ${result.data.number} marquee payee`, "success");
+    setPayAmount(
+      getInvoiceBalance(result.data) > 0
+        ? String(getInvoiceBalance(result.data))
+        : "",
+    );
+    showToast(
+      `Encaissement ${formatCurrency(amount)} — ${statusLabel(result.data.status)}`,
+      "success",
+    );
+    window.dispatchEvent(
+      new CustomEvent("bcf:invoice-paid", {
+        detail: { invoiceNumber: result.data.number },
+      }),
+    );
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleReminder = () => {
+    if (!selected) return;
+    const result = markInvoiceReminder(selected.id);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      return;
+    }
+    setSelected(result.data.invoice);
+    setVersion((v) => v + 1);
+    window.open(result.data.whatsappUrl, "_blank", "noopener,noreferrer");
+    showToast("Relance WhatsApp ouverte", "success");
+  };
+
+  const handleShare = (channel: "whatsapp" | "email" | "print") => {
+    if (!selected) return;
+    if (channel === "print") {
+      window.print();
+      return;
+    }
+    const share = buildInvoiceSharePayload(selected);
+    if (channel === "whatsapp") {
+      window.open(share.whatsappUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    window.open(share.mailtoUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const handleCreditNote = () => {
+    if (!selected) return;
+    const amount = Math.round(Number(creditAmount) || 0);
+    const result = createCreditNote({
+      invoiceId: selected.id,
+      amount,
+      reason: creditReason,
+    });
+    if (!result.ok) {
+      showToast(result.error, "error");
+      return;
+    }
+    setSelected(result.data.invoice);
+    setCreditOpen(false);
+    setCreditAmount("");
+    setCreditReason("");
+    setVersion((v) => v + 1);
+    showToast(
+      `Avoir ${result.data.creditNote.number} — ${formatCurrency(amount)}`,
+      "success",
+    );
+    window.dispatchEvent(
+      new CustomEvent("bcf:invoice-cancelled", {
+        detail: { invoiceNumber: selected.number },
+      }),
+    );
   };
 
   const columns: DataColumn<Invoice>[] = [
@@ -200,7 +338,16 @@ export function InvoicesWorkspace() {
     {
       key: "client",
       header: "Client",
-      cell: (row) => row.customerName,
+      cell: (row) => (
+        <div className="min-w-0">
+          <p className="truncate">{row.customerName}</p>
+          {isInvoiceOpen(row) ? (
+            <p className="text-[10px] text-warning">
+              Du {formatCurrency(getInvoiceBalance(row))}
+            </p>
+          ) : null}
+        </div>
+      ),
     },
     {
       key: "payment",
@@ -244,10 +391,12 @@ export function InvoicesWorkspace() {
               ? "success"
               : row.status === "CANCELLED"
                 ? "danger"
-                : "warning"
+                : row.status === "PARTIALLY_PAID" || row.status === "SENT"
+                  ? "warning"
+                  : "outline"
           }
         >
-          {statusLabels[row.status]}
+          {statusLabel(row.status)}
         </Badge>
       ),
     },
@@ -263,11 +412,13 @@ export function InvoicesWorkspace() {
     },
   ];
 
+  const balance = selected ? getInvoiceBalance(selected) : 0;
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Factures"
-        description="Suivi des ventes caisse : payees, annulees (remboursement + restock). Creation dans Vente."
+        description="Ventes caisse, credits clients, avoirs, relances et annulations tracees."
         actions={
           <Link
             href="/sales"
@@ -295,6 +446,14 @@ export function InvoicesWorkspace() {
           onClick={() => toggleStatusFilter("PAID")}
         />
         <StatCard
+          title="Impayees"
+          value={stats.unpaid}
+          subtitle={`${formatCurrency(stats.unpaidTotal)} — a relancer`}
+          variant="warning"
+          active={statusFilter === "unpaid"}
+          onClick={() => toggleStatusFilter("unpaid")}
+        />
+        <StatCard
           title="Annulees"
           value={stats.cancelled}
           subtitle={`${formatCurrency(stats.cancelledTotal)} — cliquer`}
@@ -302,13 +461,16 @@ export function InvoicesWorkspace() {
           active={statusFilter === "CANCELLED"}
           onClick={() => toggleStatusFilter("CANCELLED")}
         />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="CA du jour"
           value={formatCurrency(todayPaid)}
           subtitle="Ventes payees aujourd'hui"
           variant="success"
           active={statusFilter === "today"}
-          onClick={() => toggleStatusFilter("today")}
+          onClick={() => setTodayPeriod()}
         />
       </div>
 
@@ -317,24 +479,86 @@ export function InvoicesWorkspace() {
         onSearchChange={list.setSearch}
         searchPlaceholder="N°, client, caissier ou paiement…"
         filters={
-          <>
-            {(
-              ["all", "today", "PAID", "SENT", "DRAFT", "CANCELLED"] as const
-            ).map((value) => (
-              <Chip
-                key={value}
-                active={statusFilter === value}
-                onClick={() => setStatusFilter(value)}
-                className="px-2.5 py-1 text-xs"
-              >
-                {value === "all"
-                  ? "Toutes"
-                  : value === "today"
-                    ? "Aujourd'hui"
-                    : statusLabels[value]}
-              </Chip>
-            ))}
-          </>
+          <div className="flex w-full flex-col gap-2">
+            <div className="flex flex-wrap gap-1.5">
+              {(
+                [
+                  "all",
+                  "today",
+                  "unpaid",
+                  "PAID",
+                  "PARTIALLY_PAID",
+                  "SENT",
+                  "CANCELLED",
+                ] as const
+              ).map((value) => (
+                <Chip
+                  key={value}
+                  active={statusFilter === value}
+                  onClick={() => setStatusFilter(value)}
+                  className="px-2.5 py-1 text-xs"
+                >
+                  {value === "all"
+                    ? "Toutes"
+                    : value === "today"
+                      ? "Aujourd'hui"
+                      : value === "unpaid"
+                        ? "Impayees"
+                        : statusLabel(value)}
+                </Chip>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">Du</Label>
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="h-8 w-[140px] text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">Au</Label>
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="h-8 w-[140px] text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">
+                  Caissier
+                </Label>
+                <select
+                  value={issuerFilter}
+                  onChange={(e) => setIssuerFilter(e.target.value)}
+                  className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                >
+                  <option value="all">Tous</option>
+                  {issuers.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {(dateFrom || dateTo || issuerFilter !== "all") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => {
+                    clearPeriod();
+                    setIssuerFilter("all");
+                  }}
+                >
+                  Reset filtres
+                </Button>
+              )}
+            </div>
+          </div>
         }
       />
 
@@ -353,31 +577,53 @@ export function InvoicesWorkspace() {
         title="Detail facture"
         description={
           selected
-            ? `${selected.number} · ${statusLabels[selected.status]}`
+            ? `${selected.number} · ${statusLabel(selected.status)}`
             : undefined
         }
         className="max-w-lg print:max-w-none"
         footer={
           selected ? (
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end print:hidden">
-              <Button variant="outline" onClick={handlePrint}>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end print:hidden">
+              <Button variant="outline" onClick={() => handleShare("print")}>
                 <Printer className="h-4 w-4" />
-                Imprimer
+                Imprimer / PDF
+              </Button>
+              <Button variant="outline" onClick={() => handleShare("whatsapp")}>
+                <MessageCircle className="h-4 w-4" />
+                WhatsApp
+              </Button>
+              <Button variant="outline" onClick={() => handleShare("email")}>
+                <Mail className="h-4 w-4" />
+                Email
               </Button>
               {selected.status !== "CANCELLED" ? (
                 <Button
                   variant="outline"
-                  onClick={() => void handleCancel()}
+                  onClick={() => {
+                    setCancelOpen(true);
+                    setCreditOpen(false);
+                  }}
                 >
-                  Annuler la facture
+                  Annuler
                 </Button>
               ) : null}
-              {selected.status !== "PAID" && selected.status !== "CANCELLED" ? (
+              {selected.status !== "CANCELLED" ? (
                 <Button
-                  className="bg-success text-success-foreground hover:bg-success/90"
-                  onClick={() => void markPaid()}
+                  variant="outline"
+                  onClick={() => {
+                    setCreditOpen(true);
+                    setCancelOpen(false);
+                    setCreditAmount(
+                      String(
+                        Math.max(
+                          0,
+                          selected.totalAmount - (selected.creditedAmount ?? 0),
+                        ),
+                      ),
+                    );
+                  }}
                 >
-                  Marquer payee
+                  Avoir
                 </Button>
               ) : null}
               <Button variant="success" onClick={saveNotes}>
@@ -388,7 +634,7 @@ export function InvoicesWorkspace() {
         }
       >
         {selected ? (
-          <div className="max-h-[min(55vh,480px)] space-y-3 overflow-y-auto rounded-xl border border-border bg-background p-4 text-[12px] print:max-h-none print:overflow-visible">
+          <div className="max-h-[min(60vh,520px)] space-y-3 overflow-y-auto rounded-xl border border-border bg-background p-4 text-[12px] print:max-h-none print:overflow-visible">
             <div className="space-y-1 text-center">
               <p className="font-sans text-base font-bold text-primary">
                 {siteConfig.name}
@@ -407,7 +653,7 @@ export function InvoicesWorkspace() {
                       : "warning"
                 }
               >
-                {statusLabels[selected.status]}
+                {statusLabel(selected.status)}
               </Badge>
             </div>
             <Separator />
@@ -416,6 +662,12 @@ export function InvoicesWorkspace() {
                 <span className="text-muted-foreground">Client</span>
                 <span className="font-medium">{selected.customerName}</span>
               </div>
+              {selected.customerPhone ? (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Tel.</span>
+                  <span>{selected.customerPhone}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Emis par</span>
                 <span>{selected.issuedByName}</span>
@@ -424,15 +676,48 @@ export function InvoicesWorkspace() {
                 <span className="text-muted-foreground">Paiement</span>
                 <span>{paymentMethodLabels[selected.paymentMethod]}</span>
               </div>
-              {selected.status === "CANCELLED" && selected.cancelledByName ? (
-                <div className="flex justify-between gap-2 text-destructive">
-                  <span>Annulee par</span>
-                  <span>
-                    {selected.cancelledByName}
-                    {selected.cancelledAt
-                      ? ` · ${formatIssuedAt(selected.cancelledAt)}`
-                      : ""}
+              <div className="flex justify-between gap-2">
+                <span className="text-muted-foreground">Paye</span>
+                <span className="tabular-nums">
+                  {formatCurrency(selected.amountPaid ?? 0)}
+                </span>
+              </div>
+              {(selected.creditedAmount ?? 0) > 0 ? (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Avoirs</span>
+                  <span className="tabular-nums">
+                    −{formatCurrency(selected.creditedAmount)}
                   </span>
+                </div>
+              ) : null}
+              {balance > 0 ? (
+                <div className="flex justify-between gap-2 font-semibold text-warning">
+                  <span>Reste du</span>
+                  <span className="tabular-nums">
+                    {formatCurrency(balance)}
+                  </span>
+                </div>
+              ) : null}
+              {selected.lastReminderAt ? (
+                <div className="flex justify-between gap-2 text-muted-foreground">
+                  <span>Derniere relance</span>
+                  <span>{formatIssuedAt(selected.lastReminderAt)}</span>
+                </div>
+              ) : null}
+              {selected.status === "CANCELLED" ? (
+                <div className="space-y-0.5 text-destructive">
+                  <div className="flex justify-between gap-2">
+                    <span>Annulee par</span>
+                    <span>
+                      {selected.cancelledByName}
+                      {selected.cancelledAt
+                        ? ` · ${formatIssuedAt(selected.cancelledAt)}`
+                        : ""}
+                    </span>
+                  </div>
+                  {selected.cancelReason ? (
+                    <p className="text-[11px]">Motif : {selected.cancelReason}</p>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -478,22 +763,6 @@ export function InvoicesWorkspace() {
                   </span>
                 </div>
               ) : null}
-              {selected.amountReceived != null ? (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Recu</span>
-                  <span className="tabular-nums">
-                    {formatCurrency(selected.amountReceived)}
-                  </span>
-                </div>
-              ) : null}
-              {selected.changeDue != null && selected.changeDue > 0 ? (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Monnaie</span>
-                  <span className="tabular-nums">
-                    {formatCurrency(selected.changeDue)}
-                  </span>
-                </div>
-              ) : null}
               <div className="flex justify-between text-sm font-bold">
                 <span>Total</span>
                 <span className="tabular-nums">
@@ -501,13 +770,136 @@ export function InvoicesWorkspace() {
                 </span>
               </div>
             </div>
+
+            {creditNotes.length > 0 ? (
+              <div className="space-y-1.5 rounded-lg border border-border p-2 print:hidden">
+                <p className="text-[11px] font-medium">Avoirs</p>
+                {creditNotes.map((cn) => (
+                  <div
+                    key={cn.id}
+                    className="flex justify-between gap-2 text-[11px] text-muted-foreground"
+                  >
+                    <span>
+                      {cn.number} — {cn.reason}
+                    </span>
+                    <span className="tabular-nums">
+                      −{formatCurrency(cn.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {balance > 0 && selected.status !== "CANCELLED" ? (
+              <div className="space-y-2 rounded-lg border border-warning/30 bg-warning/5 p-3 print:hidden">
+                <p className="text-[11px] font-medium">Encaisser le solde</p>
+                <div className="flex flex-wrap gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={payAmount}
+                    onChange={(e) => setPayAmount(e.target.value)}
+                    className="h-8 w-28 text-xs"
+                  />
+                  <select
+                    value={payMethod}
+                    onChange={(e) =>
+                      setPayMethod(e.target.value as PaymentMethod)
+                    }
+                    className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+                  >
+                    <option value="CASH">Especes</option>
+                    <option value="MOBILE_MONEY">OM / MoMo</option>
+                  </select>
+                  <Button size="sm" className="h-8" onClick={handlePayment}>
+                    Encaisser
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8"
+                    onClick={handleReminder}
+                  >
+                    Relancer
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {cancelOpen ? (
+              <div className="space-y-2 rounded-lg border border-destructive/30 p-3 print:hidden">
+                <p className="text-[11px] font-medium text-destructive">
+                  Motif d&apos;annulation (obligatoire)
+                </p>
+                <Input
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="ex. Erreur caisse, client refuse…"
+                  className="h-8 text-xs"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-8"
+                    onClick={handleCancel}
+                  >
+                    Confirmer l&apos;annulation
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8"
+                    onClick={() => setCancelOpen(false)}
+                  >
+                    Fermer
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {creditOpen ? (
+              <div className="space-y-2 rounded-lg border border-border p-3 print:hidden">
+                <p className="text-[11px] font-medium">
+                  Note de credit / avoir (remboursement partiel)
+                </p>
+                <Input
+                  type="number"
+                  min={0}
+                  value={creditAmount}
+                  onChange={(e) => setCreditAmount(e.target.value)}
+                  placeholder="Montant"
+                  className="h-8 text-xs"
+                />
+                <Input
+                  value={creditReason}
+                  onChange={(e) => setCreditReason(e.target.value)}
+                  placeholder="Motif (obligatoire)"
+                  className="h-8 text-xs"
+                />
+                <div className="flex gap-2">
+                  <Button size="sm" className="h-8" onClick={handleCreditNote}>
+                    Creer l&apos;avoir
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8"
+                    onClick={() => setCreditOpen(false)}
+                  >
+                    Fermer
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
             <div className="space-y-1.5 pt-2 font-sans print:hidden">
               <Label htmlFor="inv-notes">Notes</Label>
               <Input
                 id="inv-notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Motif d'annulation, remarque…"
+                placeholder="Remarque…"
               />
             </div>
             <p className="text-[11px] text-muted-foreground print:hidden">
@@ -515,7 +907,7 @@ export function InvoicesWorkspace() {
               <Link href="/comptabilite" className="text-primary hover:underline">
                 Comptabilite
               </Link>{" "}
-              pour le journal de caisse (vente / remboursement).
+              pour le journal de caisse.
             </p>
           </div>
         ) : null}
