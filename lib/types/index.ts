@@ -242,6 +242,9 @@ export type Invoice = {
   issuedAt: Date;
   issuedById: string;
   issuedByName: string;
+  cancelledAt?: Date;
+  cancelledById?: string;
+  cancelledByName?: string;
   items: InvoiceItem[];
   createdAt: Date;
   updatedAt: Date;

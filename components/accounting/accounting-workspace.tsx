@@ -68,10 +68,12 @@ export function AccountingWorkspace() {
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("bcf:sale-completed", refresh);
+    window.addEventListener("bcf:invoice-cancelled", refresh);
     return () => {
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("bcf:sale-completed", refresh);
+      window.removeEventListener("bcf:invoice-cancelled", refresh);
     };
   }, [mounted]);
 
