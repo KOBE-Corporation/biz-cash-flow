@@ -52,6 +52,8 @@ const segmentLabels: Record<string, string> = {
   achats: "Achats",
   comptabilite: "Comptabilite",
   stock: "Stock",
+  sorties: "Sorties",
+  entrees: "Entrees",
   nouveau: "Nouveau",
   edit: "Modifier",
 };

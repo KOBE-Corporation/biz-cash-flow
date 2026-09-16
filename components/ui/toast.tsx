@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { AlertTriangle, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type ToastTone = "success" | "error" | "info";
@@ -34,6 +35,13 @@ type ToastViewportProps = {
   className?: string;
 };
 
+function ToastIcon({ tone }: { tone: ToastTone }) {
+  const className = "h-4 w-4 shrink-0";
+  if (tone === "success") return <Check className={className} aria-hidden />;
+  if (tone === "error") return <X className={className} aria-hidden />;
+  return <AlertTriangle className={className} aria-hidden />;
+}
+
 /**
  * Toast global : toujours monte sur `document.body` au-dessus des dialogs (z-200).
  */
@@ -51,7 +59,7 @@ export function ToastViewport({ toast, className }: ToastViewportProps) {
       role="status"
       aria-live="polite"
       className={cn(
-        "pointer-events-none fixed bottom-5 left-1/2 z-[9999] w-[min(92vw,28rem)] -translate-x-1/2 rounded-full border px-4 py-2.5 text-sm shadow-card",
+        "pointer-events-none fixed bottom-5 left-1/2 z-[9999] flex w-[min(92vw,28rem)] -translate-x-1/2 items-center gap-2 rounded-full border px-4 py-2.5 text-sm shadow-card",
         toast.tone === "success" &&
           "border-success/40 bg-success text-success-foreground",
         toast.tone === "error" &&
@@ -60,9 +68,8 @@ export function ToastViewport({ toast, className }: ToastViewportProps) {
         className,
       )}
     >
-      <span className="block truncate text-center font-medium">
-        {toast.message}
-      </span>
+      <ToastIcon tone={toast.tone} />
+      <span className="min-w-0 flex-1 truncate font-medium">{toast.message}</span>
     </div>,
     document.body,
   );

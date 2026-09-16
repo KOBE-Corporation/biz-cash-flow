@@ -127,18 +127,30 @@ export function AccountingWorkspace() {
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Entrees caisse"
-          value={formatCurrency(data.cashIn)}
-          subtitle={`${data.salesCount} vente(s) payee(s)`}
-          variant="success"
-        />
-        <StatCard
-          title="Sorties caisse"
-          value={formatCurrency(data.cashOut)}
-          subtitle={`${data.purchasesCount} achat(s) recu(s)`}
-          variant="danger"
-        />
+        <Link
+          href="/comptabilite/entrees"
+          className="block rounded-xl outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <StatCard
+            title="Entrees caisse"
+            value={formatCurrency(data.cashIn)}
+            subtitle={`${data.salesCount} vente(s) — cliquer`}
+            variant="success"
+            className="transition-colors hover:bg-surface-active/40"
+          />
+        </Link>
+        <Link
+          href="/comptabilite/sorties"
+          className="block rounded-xl outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <StatCard
+            title="Sorties caisse"
+            value={formatCurrency(data.cashOut)}
+            subtitle={`${data.purchasesCount} achat(s) — cliquer`}
+            variant="danger"
+            className="transition-colors hover:bg-surface-active/40"
+          />
+        </Link>
         <StatCard
           title="Solde caisse du jour"
           value={formatCurrency(data.netCash)}
@@ -159,11 +171,17 @@ export function AccountingWorkspace() {
           value={formatCurrency(data.salesTotal)}
           subtitle="Factures payees du jour"
         />
-        <StatCard
-          title="Achats recus"
-          value={formatCurrency(data.purchasesTotal)}
-          subtitle="Sorties stock + caisse"
-        />
+        <Link
+          href="/comptabilite/sorties"
+          className="block rounded-xl outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <StatCard
+            title="Achats recus"
+            value={formatCurrency(data.purchasesTotal)}
+            subtitle="Sorties stock + caisse — cliquer"
+            className="transition-colors hover:bg-surface-active/40"
+          />
+        </Link>
         <Link href="/comptabilite/stock" className="block rounded-xl outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring">
           <StatCard
             title="Alertes stock"
@@ -373,50 +391,7 @@ export function AccountingWorkspace() {
         )}
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold text-foreground">
-          Comparaison fournisseurs
-        </h2>
-        {data.supplierComparisons.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Pas encore assez d&apos;offres (il faut au moins 2 fournisseurs pour
-            un meme produit).
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {data.supplierComparisons.map((item) => (
-              <div
-                key={item.productId}
-                className="rounded-2xl border border-border p-4"
-              >
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-medium">{item.productName}</p>
-                  <Badge variant="success">
-                    Economie max / unite :{" "}
-                    {formatCurrency(item.potentialSavingPerBase)}
-                  </Badge>
-                </div>
-                <ul className="space-y-1.5 text-sm">
-                  {item.offers.map((offer) => (
-                    <li
-                      key={`${offer.supplierName}-${offer.purchasePackName}`}
-                      className="flex flex-wrap justify-between gap-2 rounded-xl bg-surface-2 px-3 py-2"
-                    >
-                      <span>
-                        {offer.supplierName} · {offer.purchasePackName} (
-                        {formatCurrency(offer.packPurchasePrice)})
-                      </span>
-                      <span className="tabular-nums text-muted-foreground">
-                        {formatCurrency(offer.costPerBaseUnit)} / unite
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      {/* Comparaison fournisseurs — masquee tant que le module n'est pas finalise */}
 
       <p className="text-xs text-muted-foreground print:hidden">
         Chaque ligne de caisse est liee a l&apos;utilisateur courant (stub auth).
