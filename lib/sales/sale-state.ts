@@ -26,6 +26,7 @@ export type SaleState = {
   discountMode: DiscountMode;
   paymentMethod: PaymentMethod;
   note: string;
+  customerPhone: string;
   amountReceived: number;
   amountDirty: boolean;
   clientCounter: number;
@@ -47,6 +48,7 @@ export const initialSaleState: SaleState = {
   discountMode: "amount",
   paymentMethod: "CASH",
   note: "",
+  customerPhone: "",
   amountReceived: 0,
   amountDirty: false,
   clientCounter: 1,
@@ -77,6 +79,7 @@ export type SaleAction =
   | { type: "SET_DISCOUNT_MODE"; mode: DiscountMode }
   | { type: "SET_PAYMENT"; method: PaymentMethod }
   | { type: "SET_NOTE"; note: string }
+  | { type: "SET_CUSTOMER_PHONE"; phone: string }
   | { type: "SET_AMOUNT"; value: number; dirty?: boolean }
   | { type: "SYNC_AMOUNT_TO_TOTAL" }
   | { type: "SET_EXACT_AMOUNT" }
@@ -212,16 +215,23 @@ export function saleReducer(state: SaleState, action: SaleAction): SaleState {
         ...state,
         paymentMethod: action.method,
         amountDirty: action.method === "CASH" ? state.amountDirty : false,
-      };
-      return {
-        ...next,
         amountReceived:
-          action.method === "CASH" ? syncAmount(next) : state.amountReceived,
+          action.method === "CASH"
+            ? syncAmount({
+                ...state,
+                paymentMethod: action.method,
+                amountDirty: state.amountDirty,
+              })
+            : 0,
       };
+      return next;
     }
 
     case "SET_NOTE":
       return { ...state, note: action.note };
+
+    case "SET_CUSTOMER_PHONE":
+      return { ...state, customerPhone: action.phone };
 
     case "SET_AMOUNT":
       return {
@@ -268,6 +278,7 @@ export function saleReducer(state: SaleState, action: SaleAction): SaleState {
         discount: 0,
         discountMode: "amount",
         note: "",
+        customerPhone: "",
         amountReceived: 0,
         amountDirty: false,
         paymentMethod: "CASH",
@@ -312,6 +323,7 @@ export function saleReducer(state: SaleState, action: SaleAction): SaleState {
 }
 
 export function effectiveReceived(state: SaleState) {
+  if (state.paymentMethod === "CREDIT") return 0;
   if (state.paymentMethod !== "CASH") {
     return getCartTotal(state.lines, state.discount, state.discountMode);
   }

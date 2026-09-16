@@ -4,6 +4,7 @@ import type {
   AuditLog,
   CashLedgerEntry,
   Category,
+  CreditNote,
   Invoice,
   Product,
   ProductSupplierOffer,
@@ -501,6 +502,8 @@ const seedInvoices: Invoice[] = [
     discountAmount: 0,
     taxAmount: 0,
     totalAmount: 22_000,
+    amountPaid: 22_000,
+    creditedAmount: 0,
     amountReceived: 25_000,
     changeDue: 3_000,
     issuedAt: new Date("2026-07-20T10:00:00"),
@@ -532,6 +535,8 @@ const seedInvoices: Invoice[] = [
     discountAmount: 0,
     taxAmount: 0,
     totalAmount: 10_000,
+    amountPaid: 10_000,
+    creditedAmount: 0,
     amountReceived: 10_000,
     changeDue: 0,
     issuedAt: new Date("2026-09-16T09:15:00"),
@@ -611,6 +616,7 @@ export type MockStore = {
   movements: StockMovement[];
   purchases: Purchase[];
   invoices: Invoice[];
+  creditNotes: CreditNote[];
   cashLedger: CashLedgerEntry[];
   auditLogs: AuditLog[];
 };
@@ -625,13 +631,14 @@ function createSeedStore(): MockStore {
     movements: structuredClone(seedMovements),
     purchases: structuredClone(seedPurchases),
     invoices: structuredClone(seedInvoices),
+    creditNotes: [],
     cashLedger: structuredClone(seedCashLedger),
     auditLogs: [],
   };
 }
 
 /** Invalide le store HMR obsolete (evite mismatch SSR/client). */
-const STORE_VERSION = 7;
+const STORE_VERSION = 8;
 
 const globalStore = globalThis as unknown as {
   __bcfMockStore?: MockStore;

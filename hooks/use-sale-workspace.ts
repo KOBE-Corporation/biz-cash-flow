@@ -120,6 +120,18 @@ export function useSaleWorkspace() {
       return;
     }
 
+    if (state.paymentMethod === "CREDIT") {
+      const name = state.note.trim();
+      if (!name || /^Client N~/i.test(name)) {
+        dispatch({
+          type: "TOAST",
+          message: "Nom du client obligatoire pour le credit",
+          tone: "error",
+        });
+        return;
+      }
+    }
+
     if (state.paymentMethod === "CASH") {
       const total = totals.total;
       const received = effectiveReceived(state);
@@ -147,6 +159,7 @@ export function useSaleWorkspace() {
     const snapshot = {
       lines: state.lines,
       customerName: clientName,
+      customerPhone: state.customerPhone.trim() || undefined,
       paymentMethod: state.paymentMethod,
       discount: state.discount,
       discountMode: state.discountMode,
@@ -160,6 +173,7 @@ export function useSaleWorkspace() {
       const result = createSale({
         lines: snapshot.lines,
         customerName: snapshot.customerName,
+        customerPhone: snapshot.customerPhone,
         paymentMethod: snapshot.paymentMethod,
         discount: snapshot.discount,
         discountMode: snapshot.discountMode,
@@ -177,9 +191,11 @@ export function useSaleWorkspace() {
       }
 
       dispatch({ type: "SALE_SUCCESS", bumpClient });
+      const creditSuffix =
+        snapshot.paymentMethod === "CREDIT" ? " (a credit)" : "";
       dispatch({
         type: "TOAST",
-        message: `Vente ${result.data.invoiceNumber} — ${snapshot.customerName} — ${formatCurrency(snapshot.total)}`,
+        message: `Vente ${result.data.invoiceNumber} — ${snapshot.customerName} — ${formatCurrency(snapshot.total)}${creditSuffix}`,
         tone: "success",
       });
       if (typeof window !== "undefined") {
@@ -233,7 +249,7 @@ export function useSaleWorkspace() {
         return;
       }
 
-      if (meta && ["1", "2"].includes(event.key)) {
+      if (meta && ["1", "2", "3"].includes(event.key)) {
         event.preventDefault();
         const method = paymentMethodShortcuts[Number(event.key) - 1];
         if (method) dispatch({ type: "SET_PAYMENT", method });

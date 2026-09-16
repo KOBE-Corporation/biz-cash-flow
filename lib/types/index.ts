@@ -1,10 +1,15 @@
 export type MovementType = "IN" | "OUT" | "ADJUSTMENT";
 
-export type InvoiceStatus = "DRAFT" | "SENT" | "PAID" | "CANCELLED";
+export type InvoiceStatus =
+  | "DRAFT"
+  | "SENT"
+  | "PARTIALLY_PAID"
+  | "PAID"
+  | "CANCELLED";
 
 export type PurchaseStatus = "PENDING" | "RECEIVED" | "CANCELLED";
 
-export type PaymentMethod = "CASH" | "MOBILE_MONEY";
+export type PaymentMethod = "CASH" | "MOBILE_MONEY" | "CREDIT";
 
 export type CashDirection = "IN" | "OUT";
 
@@ -226,25 +231,58 @@ export type InvoiceItem = {
   packName?: string;
 };
 
+export type CreditNoteItem = {
+  id: string;
+  productId?: string;
+  productName: string;
+  productSku: string;
+  quantity: number;
+  unitPrice: number;
+  unitsOfBase?: number;
+  packName?: string;
+};
+
+/** Avoir / note de credit liee a une facture. */
+export type CreditNote = {
+  id: string;
+  number: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  amount: number;
+  reason: string;
+  items: CreditNoteItem[];
+  createdAt: Date;
+  createdById: string;
+  createdByName: string;
+};
+
 export type Invoice = {
   id: string;
   number: string;
   customerName: string;
+  /** Telephone pour relance WhatsApp (optionnel). */
+  customerPhone?: string;
   status: InvoiceStatus;
   paymentMethod: PaymentMethod;
   subtotal: number;
   discountAmount: number;
   taxAmount: number;
   totalAmount: number;
+  /** Montant deja encaisse (0 si a credit). */
+  amountPaid: number;
+  /** Cumul des notes de credit. */
+  creditedAmount: number;
   amountReceived?: number;
   changeDue?: number;
   notes?: string;
   issuedAt: Date;
   issuedById: string;
   issuedByName: string;
+  lastReminderAt?: Date;
   cancelledAt?: Date;
   cancelledById?: string;
   cancelledByName?: string;
+  cancelReason?: string;
   items: InvoiceItem[];
   createdAt: Date;
   updatedAt: Date;

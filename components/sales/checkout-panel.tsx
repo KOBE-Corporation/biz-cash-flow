@@ -20,6 +20,7 @@ type CheckoutPanelProps = {
   discountMode: DiscountMode;
   paymentMethod: PaymentMethod;
   note: string;
+  customerPhone: string;
   amountReceived: number;
   nextClientLabel: string;
   receivedRef?: React.Ref<HTMLInputElement>;
@@ -27,6 +28,7 @@ type CheckoutPanelProps = {
   onDiscountModeChange: (mode: DiscountMode) => void;
   onPaymentMethodChange: (method: PaymentMethod) => void;
   onNoteChange: (value: string) => void;
+  onCustomerPhoneChange: (value: string) => void;
   onAmountReceivedChange: (value: number) => void;
   onExactAmount?: () => void;
   onAmountReceivedSubmit?: () => void;
@@ -35,6 +37,7 @@ type CheckoutPanelProps = {
 const paymentMethods: { value: PaymentMethod; label: string }[] = [
   { value: "CASH", label: "Especes" },
   { value: "MOBILE_MONEY", label: "OM / MoMo" },
+  { value: "CREDIT", label: "A credit" },
 ];
 
 const quickCashAmounts = [
@@ -51,6 +54,7 @@ export function CheckoutPanel({
   discountMode,
   paymentMethod,
   note,
+  customerPhone,
   amountReceived,
   nextClientLabel,
   receivedRef,
@@ -58,6 +62,7 @@ export function CheckoutPanel({
   onDiscountModeChange,
   onPaymentMethodChange,
   onNoteChange,
+  onCustomerPhoneChange,
   onAmountReceivedChange,
   onExactAmount,
   onAmountReceivedSubmit,
@@ -67,6 +72,7 @@ export function CheckoutPanel({
   const total = getCartTotal(lines, discount, discountMode);
   const isEmpty = lines.length === 0;
   const isCash = paymentMethod === "CASH";
+  const isCredit = paymentMethod === "CREDIT";
 
   return (
     <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card">
@@ -145,18 +151,25 @@ export function CheckoutPanel({
           </div>
         ) : null}
 
+        {isCredit ? (
+          <p className="rounded-lg bg-warning/10 px-2.5 py-2 text-[11px] text-warning-foreground">
+            Vente a credit : stock sorti, aucun encaissement. Le client devra
+            regler plus tard (Factures → Impayees).
+          </p>
+        ) : null}
+
         <div className="space-y-1.5">
           <Label className="text-[11px] text-muted-foreground">
-            Mode · Ctrl+1..2
+            Mode · Ctrl+1..3
           </Label>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5">
             {paymentMethods.map((method, index) => (
               <button
                 key={method.value}
                 type="button"
                 onClick={() => onPaymentMethodChange(method.value)}
                 className={cn(
-                  "min-w-0 truncate rounded-lg px-2 py-2 text-center text-[11px] font-medium transition-colors",
+                  "min-w-0 truncate rounded-lg px-1.5 py-2 text-center text-[10px] font-medium transition-colors sm:text-[11px]",
                   paymentMethod === method.value
                     ? "bg-surface-active text-foreground"
                     : "bg-surface-2 text-muted-foreground hover:text-foreground",
@@ -206,19 +219,36 @@ export function CheckoutPanel({
 
         <div className="space-y-1">
           <Label htmlFor="note" className="text-[11px] text-muted-foreground">
-            Client
+            Client{isCredit ? " (obligatoire)" : ""}
           </Label>
           <Input
             id="note"
             value={note}
-            placeholder={nextClientLabel}
+            placeholder={isCredit ? "Nom du client" : nextClientLabel}
             className="h-8 text-xs"
             onChange={(event) => onNoteChange(event.target.value)}
           />
-          <p className="text-[10px] text-muted-foreground">
-            Vide = {nextClientLabel} sur la facture
-          </p>
+          {!isCredit ? (
+            <p className="text-[10px] text-muted-foreground">
+              Vide = {nextClientLabel} sur la facture
+            </p>
+          ) : null}
         </div>
+
+        {isCredit ? (
+          <div className="space-y-1">
+            <Label htmlFor="phone" className="text-[11px] text-muted-foreground">
+              Telephone (relance WhatsApp)
+            </Label>
+            <Input
+              id="phone"
+              value={customerPhone}
+              placeholder="ex. 2376XXXXXXXX"
+              className="h-8 text-xs"
+              onChange={(event) => onCustomerPhoneChange(event.target.value)}
+            />
+          </div>
+        ) : null}
 
         <Separator />
 
@@ -236,7 +266,7 @@ export function CheckoutPanel({
             </span>
           </div>
           <div className="flex justify-between gap-2 font-bold text-foreground">
-            <span>Total</span>
+            <span>{isCredit ? "A devoir" : "Total"}</span>
             <span className="truncate tabular-nums">{formatCurrency(total)}</span>
           </div>
         </div>

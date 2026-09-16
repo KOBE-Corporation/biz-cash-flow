@@ -70,12 +70,14 @@ export const ReimbursementPanel = forwardRef<
           </div>
 
           <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-2 px-3 py-2.5">
-            <span className="text-xs text-muted-foreground">Remboursement</span>
+            <span className="text-xs text-muted-foreground">
+              {paymentMethod === "CREDIT" ? "A encaisser plus tard" : "Remboursement"}
+            </span>
             <Badge
               variant={change > 0 ? "warning" : "outline"}
               className="px-2.5 py-1 text-xs tabular-nums"
             >
-              {formatCurrency(change)}
+              {paymentMethod === "CREDIT" ? formatCurrency(total) : formatCurrency(change)}
             </Badge>
           </div>
         </div>

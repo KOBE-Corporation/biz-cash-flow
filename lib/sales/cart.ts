@@ -3,11 +3,13 @@ import type { CartLine, PaymentMethod, Product } from "@/lib/types";
 export const paymentMethodLabels: Record<PaymentMethod, string> = {
   CASH: "Especes",
   MOBILE_MONEY: "OM / MoMo",
+  CREDIT: "A credit",
 };
 
 export const paymentMethodShortcuts: PaymentMethod[] = [
   "CASH",
   "MOBILE_MONEY",
+  "CREDIT",
 ];
 
 export type StockFilter = "all" | "available" | "low" | "out";

@@ -15,6 +15,7 @@ import { CURRENT_USER } from "@/lib/auth/current-user";
 export type CreateSaleInput = {
   lines: CartLine[];
   customerName: string;
+  customerPhone?: string;
   paymentMethod: PaymentMethod;
   discount: number;
   discountMode: DiscountMode;
@@ -44,12 +45,23 @@ function buildInvoiceNumber(date = new Date()) {
 
 /**
  * Enregistre une vente dans le store mock partage :
- * facture PAID → journal de caisse (entree) → mouvements stock OUT.
- * Utilise par la page Vente (client) pour synchroniser Comptabilite / Factures / Stock.
+ * - CASH / MOBILE_MONEY → facture PAID + journal caisse + stock OUT
+ * - CREDIT → facture SENT (a credit) + stock OUT, sans encaissement
  */
 export function createSale(input: CreateSaleInput): CreateSaleResult {
   if (input.lines.length === 0) {
     return { ok: false, error: "Panier vide" };
+  }
+
+  const isCredit = input.paymentMethod === "CREDIT";
+  const customerName = input.customerName.trim() || "Client";
+  if (isCredit) {
+    if (!customerName || /^Client N~/i.test(customerName)) {
+      return {
+        ok: false,
+        error: "Nom du client obligatoire pour une vente a credit",
+      };
+    }
   }
 
   const actor = getActor();
@@ -86,26 +98,31 @@ export function createSale(input: CreateSaleInput): CreateSaleResult {
     input.discountMode,
   );
   const isCash = input.paymentMethod === "CASH";
-  const amountReceived = isCash
-    ? input.amountReceived > 0
-      ? input.amountReceived
-      : totalAmount
-    : totalAmount;
+  const amountReceived = isCredit
+    ? 0
+    : isCash
+      ? input.amountReceived > 0
+        ? input.amountReceived
+        : totalAmount
+      : totalAmount;
   const changeDue = isCash ? getChangeDue(totalAmount, amountReceived) : 0;
   const invoiceNumber = buildInvoiceNumber();
   const issuedAt = new Date();
 
   const invoice = addInvoice({
     number: invoiceNumber,
-    customerName: input.customerName.trim() || "Client",
-    status: "PAID",
+    customerName,
+    customerPhone: input.customerPhone?.trim() || undefined,
+    status: isCredit ? "SENT" : "PAID",
     paymentMethod: input.paymentMethod,
     subtotal,
     discountAmount,
     taxAmount: 0,
     totalAmount,
-    amountReceived,
-    changeDue,
+    amountPaid: isCredit ? 0 : totalAmount,
+    creditedAmount: 0,
+    amountReceived: isCredit ? undefined : amountReceived,
+    changeDue: isCredit ? undefined : changeDue,
     notes: input.notes?.trim() || undefined,
     issuedAt,
     issuedById: issuer.id,

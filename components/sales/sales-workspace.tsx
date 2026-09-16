@@ -74,6 +74,7 @@ export function SalesWorkspace() {
               discountMode={state.discountMode}
               paymentMethod={state.paymentMethod}
               note={state.note}
+              customerPhone={state.customerPhone}
               amountReceived={state.amountReceived}
               nextClientLabel={clientLabel}
               onDiscountChange={(value) =>
@@ -86,6 +87,9 @@ export function SalesWorkspace() {
                 dispatch({ type: "SET_PAYMENT", method })
               }
               onNoteChange={(note) => dispatch({ type: "SET_NOTE", note })}
+              onCustomerPhoneChange={(phone) =>
+                dispatch({ type: "SET_CUSTOMER_PHONE", phone })
+              }
               onAmountReceivedChange={(value) =>
                 dispatch({ type: "SET_AMOUNT", value })
               }
