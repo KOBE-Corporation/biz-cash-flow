@@ -61,6 +61,7 @@ Catalogue. Le **stock ne se cree pas ici** : il arrive via un **achat receptionn
 | Prix par conditionnement | Selon packs | Prix de revente carton, casier… |
 | Seuil min | Non | Declenche alerte stock faible |
 | Description | Non | Info libre |
+| Fabrication / Peremption / Lot / Serie | Selon categorie | Affiches seulement si la categorie active le suivi |
 | Actif | — | Si inactif, invisible a la vente |
 
 ### Categories `/categories`
@@ -73,6 +74,10 @@ Catalogue. Le **stock ne se cree pas ici** : il arrive via un **achat receptionn
 | Description | Optionnel |
 | Unite de base | Ex. paquet, bouteille |
 | Conditionnements | Liste de niveaux : nom + nombre d’unites de base (la base = 1 est fixe) |
+| Suivi lot & dates | Case a cocher : fabrication, peremption, n° lot, n° serie |
+| Alerte / critique | Jours avant peremption (si suivi peremption active) |
+| Duree de vie defaut | Suggere la date de peremption a partir de la fabrication |
+| Remise suggeree % | Idee de promo pour ecouler avant perte |
 | Active | Visible ou non |
 
 Exemple cigarettes :
@@ -80,6 +85,8 @@ Exemple cigarettes :
 1. `paquet` = 1  
 2. `cartouche` = 20  
 3. `carton` = 200  
+
+Sur Cigarettes / Bieres, activez **peremption + lot** : les produits et les lignes d’achat affichent alors ces champs, et Comptabilite › Stock liste les alertes avec une **remise suggeree**.
 
 ### Achats `/achats`
 
@@ -93,6 +100,7 @@ Commandes fournisseurs + creation de produits + reception de stock.
 | Qte lots | Oui | Nombre de cartons / casiers… |
 | Prix / lot | Oui | Prix paye pour un lot |
 | Unites / lot | Oui | Pour calculer le cout unitaire |
+| Fabrication / Peremption / Lot | Selon categorie | Renseignes a la reception ; mis a jour sur le produit |
 | Notes | Non | Commentaire |
 
 **Nouveau produit (depuis Achats)**

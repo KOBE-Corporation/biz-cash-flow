@@ -14,6 +14,13 @@ import { PageHeader, StatCard } from "@/components/ui/page-header";
 import { ToastViewport, useToast } from "@/components/ui/toast";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { useEntityList } from "@/hooks/use-entity-list";
+import {
+  formatDateInput,
+  formatDisplayDate,
+  getExpiryStatus,
+  parseDateInput,
+  suggestExpiryFromManufactured,
+} from "@/lib/inventory/expiry";
 import { listCategories } from "@/lib/repositories/categories";
 import { listOffersForProduct } from "@/lib/repositories/offers";
 import {
@@ -30,7 +37,7 @@ import {
 import type { Product, ProductPackPrice } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 
-type StockFilter = "all" | "ok" | "low" | "out";
+type StockFilter = "all" | "ok" | "low" | "out" | "expiring";
 
 type ProductFormState = {
   name: string;
@@ -44,6 +51,10 @@ type ProductFormState = {
   supplierId: string;
   packLevels: ProductPackPrice[];
   isActive: boolean;
+  manufacturedAt: string;
+  expiresAt: string;
+  batchNumber: string;
+  serialNumber: string;
 };
 
 function stockTone(product: Product) {
@@ -79,17 +90,26 @@ export function ProductsWorkspace() {
       if (categoryFilter !== "all" && item.categoryId !== categoryFilter) {
         return false;
       }
-      const tone = stockTone(item);
-      if (stockFilter !== "all" && tone !== stockFilter) return false;
+      if (stockFilter === "expiring") {
+        const category = categories.find((c) => c.id === item.categoryId);
+        const status = getExpiryStatus(item, category);
+        if (status !== "soon" && status !== "critical" && status !== "expired") {
+          return false;
+        }
+      } else {
+        const tone = stockTone(item);
+        if (stockFilter !== "all" && tone !== stockFilter) return false;
+      }
       const q = query.trim().toLowerCase();
       if (!q) return true;
       return (
         item.name.toLowerCase().includes(q) ||
         item.sku.toLowerCase().includes(q) ||
-        item.barcode.includes(q)
+        item.barcode.includes(q) ||
+        (item.batchNumber?.toLowerCase().includes(q) ?? false)
       );
     },
-    [categoryFilter, stockFilter],
+    [categories, categoryFilter, stockFilter],
   );
 
   const list = useEntityList(items, filterFn);
@@ -101,6 +121,13 @@ export function ProductsWorkspace() {
 
   const lowCount = items.filter((p) => stockTone(p) === "low").length;
   const outCount = items.filter((p) => stockTone(p) === "out").length;
+  const expiringCount = items.filter((p) => {
+    const status = getExpiryStatus(
+      p,
+      categories.find((c) => c.id === p.categoryId),
+    );
+    return status === "soon" || status === "critical" || status === "expired";
+  }).length;
 
   const openEdit = (item: Product) => {
     const category = categories.find((c) => c.id === item.categoryId);
@@ -120,6 +147,10 @@ export function ProductsWorkspace() {
         item.packLevels,
       ),
       isActive: item.isActive,
+      manufacturedAt: formatDateInput(item.manufacturedAt),
+      expiresAt: formatDateInput(item.expiresAt),
+      batchNumber: item.batchNumber ?? "",
+      serialNumber: item.serialNumber ?? "",
     });
     setError(null);
     list.openEdit(item);
@@ -145,6 +176,10 @@ export function ProductsWorkspace() {
       supplierId: form.supplierId || undefined,
       packLevels,
       isActive: form.isActive,
+      manufacturedAt: parseDateInput(form.manufacturedAt) ?? null,
+      expiresAt: parseDateInput(form.expiresAt) ?? null,
+      batchNumber: form.batchNumber.trim() || null,
+      serialNumber: form.serialNumber.trim() || null,
     });
     if (!result.ok) {
       setError(result.error);
@@ -210,6 +245,37 @@ export function ProductsWorkspace() {
           >
             {row.quantity} {row.baseUnitName}
           </Badge>
+        );
+      },
+    },
+    {
+      key: "expiry",
+      header: "Peremption",
+      hideOnMobile: true,
+      cell: (row) => {
+        const category = categories.find((c) => c.id === row.categoryId);
+        if (!category?.tracking?.tracksExpiry) {
+          return <span className="text-xs text-muted-foreground">—</span>;
+        }
+        const status = getExpiryStatus(row, category);
+        if (!row.expiresAt) {
+          return <Badge variant="outline">Non renseignee</Badge>;
+        }
+        return (
+          <div className="space-y-0.5">
+            <p className="text-xs tabular-nums">
+              {formatDisplayDate(row.expiresAt)}
+            </p>
+            {status === "expired" ? (
+              <Badge variant="danger">Perime</Badge>
+            ) : status === "critical" ? (
+              <Badge variant="danger">Critique</Badge>
+            ) : status === "soon" ? (
+              <Badge variant="warning">Bientot</Badge>
+            ) : (
+              <Badge variant="success">OK</Badge>
+            )}
+          </div>
         );
       },
     },
@@ -281,19 +347,57 @@ export function ProductsWorkspace() {
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <StatCard title="Produits" value={items.length} />
-        <StatCard title="Stock faible" value={lowCount} variant="warning" />
-        <StatCard title="Rupture" value={outCount} variant="danger" />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          title="Produits"
+          value={items.length}
+          subtitle="Tous"
+          active={stockFilter === "all"}
+          onClick={() => setStockFilter("all")}
+        />
+        <StatCard
+          title="Stock faible"
+          value={lowCount}
+          variant="warning"
+          subtitle="Cliquer pour filtrer"
+          active={stockFilter === "low"}
+          onClick={() =>
+            setStockFilter((prev) => (prev === "low" ? "all" : "low"))
+          }
+        />
+        <StatCard
+          title="Rupture"
+          value={outCount}
+          variant="danger"
+          subtitle="Cliquer pour filtrer"
+          active={stockFilter === "out"}
+          onClick={() =>
+            setStockFilter((prev) => (prev === "out" ? "all" : "out"))
+          }
+        />
+        <StatCard
+          title="Peremption"
+          value={expiringCount}
+          variant={expiringCount > 0 ? "warning" : "success"}
+          subtitle="Cliquer pour filtrer"
+          active={stockFilter === "expiring"}
+          onClick={() =>
+            setStockFilter((prev) =>
+              prev === "expiring" ? "all" : "expiring",
+            )
+          }
+        />
       </div>
 
       <CrudToolbar
         search={list.search}
         onSearchChange={list.setSearch}
-        searchPlaceholder="Nom, SKU ou code-barres…"
+        searchPlaceholder="Nom, SKU, code-barres ou lot…"
         filters={
           <>
-            {(["all", "ok", "low", "out"] as StockFilter[]).map((value) => (
+            {(
+              ["all", "ok", "low", "out", "expiring"] as StockFilter[]
+            ).map((value) => (
               <Chip
                 key={value}
                 active={stockFilter === value}
@@ -306,7 +410,9 @@ export function ProductsWorkspace() {
                     ? "OK"
                     : value === "low"
                       ? "Faible"
-                      : "Rupture"}
+                      : value === "out"
+                        ? "Rupture"
+                        : "Peremption"}
               </Chip>
             ))}
             <select
@@ -520,6 +626,111 @@ export function ProductsWorkspace() {
                   }
                 />
               </div>
+
+              {(() => {
+                const tracking = categories.find(
+                  (c) => c.id === form.categoryId,
+                )?.tracking;
+                if (
+                  !tracking ||
+                  !(
+                    tracking.tracksManufacturedAt ||
+                    tracking.tracksExpiry ||
+                    tracking.tracksBatchNumber ||
+                    tracking.tracksSerialNumber
+                  )
+                ) {
+                  return null;
+                }
+                return (
+                  <div className="space-y-3 rounded-xl border border-border p-3 sm:col-span-2">
+                    <div>
+                      <p className="text-sm font-medium">Lot & dates</p>
+                      <p className="text-xs text-muted-foreground">
+                        Champs actives par la categorie. Utiles pour les alertes
+                        et remises anti-perte.
+                      </p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {tracking.tracksManufacturedAt ? (
+                        <div className="space-y-1.5">
+                          <Label>Date de fabrication</Label>
+                          <Input
+                            type="date"
+                            value={form.manufacturedAt}
+                            onChange={(e) => {
+                              const manufacturedAt = e.target.value;
+                              setForm((p) => {
+                                if (!p) return p;
+                                const shelf =
+                                  tracking.defaultShelfLifeDays;
+                                const next = { ...p, manufacturedAt };
+                                if (
+                                  shelf &&
+                                  manufacturedAt &&
+                                  (!p.expiresAt || tracking.tracksExpiry)
+                                ) {
+                                  const mfg = parseDateInput(manufacturedAt);
+                                  if (mfg) {
+                                    next.expiresAt = formatDateInput(
+                                      suggestExpiryFromManufactured(mfg, shelf),
+                                    );
+                                  }
+                                }
+                                return next;
+                              });
+                            }}
+                          />
+                        </div>
+                      ) : null}
+                      {tracking.tracksExpiry ? (
+                        <div className="space-y-1.5">
+                          <Label>Date de peremption</Label>
+                          <Input
+                            type="date"
+                            value={form.expiresAt}
+                            onChange={(e) =>
+                              setForm(
+                                (p) =>
+                                  p && { ...p, expiresAt: e.target.value },
+                              )
+                            }
+                          />
+                        </div>
+                      ) : null}
+                      {tracking.tracksBatchNumber ? (
+                        <div className="space-y-1.5">
+                          <Label>Numero de lot</Label>
+                          <Input
+                            value={form.batchNumber}
+                            onChange={(e) =>
+                              setForm(
+                                (p) =>
+                                  p && { ...p, batchNumber: e.target.value },
+                              )
+                            }
+                            placeholder="LOT-…"
+                          />
+                        </div>
+                      ) : null}
+                      {tracking.tracksSerialNumber ? (
+                        <div className="space-y-1.5">
+                          <Label>Numero de serie</Label>
+                          <Input
+                            value={form.serialNumber}
+                            onChange={(e) =>
+                              setForm(
+                                (p) =>
+                                  p && { ...p, serialNumber: e.target.value },
+                              )
+                            }
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {offers.length > 0 ? (

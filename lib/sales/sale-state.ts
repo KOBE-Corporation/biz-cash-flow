@@ -29,6 +29,8 @@ export type SaleState = {
   amountReceived: number;
   amountDirty: boolean;
   clientCounter: number;
+  /** Force le rechargement catalogue apres une vente (stock). */
+  catalogEpoch: number;
   query: string;
   stockFilter: StockFilter;
   highlightedIndex: number;
@@ -48,6 +50,7 @@ export const initialSaleState: SaleState = {
   amountReceived: 0,
   amountDirty: false,
   clientCounter: 1,
+  catalogEpoch: 0,
   query: "",
   stockFilter: "available",
   highlightedIndex: 0,
@@ -291,6 +294,7 @@ export function saleReducer(state: SaleState, action: SaleAction): SaleState {
         clientCounter: action.bumpClient
           ? state.clientCounter + 1
           : state.clientCounter,
+        catalogEpoch: state.catalogEpoch + 1,
         stockFilter: state.stockFilter,
       };
 
@@ -298,6 +302,7 @@ export function saleReducer(state: SaleState, action: SaleAction): SaleState {
       return {
         ...initialSaleState,
         clientCounter: state.clientCounter,
+        catalogEpoch: state.catalogEpoch,
         stockFilter: state.stockFilter,
       };
 

@@ -1,5 +1,6 @@
 import { getStore } from "@/lib/mock/store";
 import { listCashLedgerForDay } from "@/lib/repositories/cash-ledger";
+import { countExpiryAlerts } from "@/lib/repositories/expiry-alerts";
 import { listOffersForProduct } from "@/lib/repositories/offers";
 import { listProducts } from "@/lib/repositories/products";
 import type { CashLedgerEntry } from "@/lib/types";
@@ -36,6 +37,8 @@ export type DailyAccounting = {
   dailyResult: number;
   lowStockAlerts: number;
   outOfStockAlerts: number;
+  /** Produits perimes / critiques / bientot (selon categorie). */
+  expiryAlerts: number;
   ledger: CashLedgerEntry[];
   /** Resume des ventes / encaissements par vendeur pour la journee. */
   salesByUser: Array<{
@@ -139,8 +142,8 @@ export function getDailyAccounting(date = new Date()): DailyAccounting {
     .sort((a, b) => b.estimatedGain - a.estimatedGain)
     .slice(0, 8);
 
-  const estimatedMargin = topProducts.reduce(
-    (sum, item) => sum + item.estimatedGain,
+  const estimatedMargin = [...byProduct.values()].reduce(
+    (sum, item) => sum + (item.revenue - item.estimatedCost),
     0,
   );
 
@@ -247,6 +250,7 @@ export function getDailyAccounting(date = new Date()): DailyAccounting {
       (p) => p.quantity > 0 && p.quantity <= p.minStock,
     ).length,
     outOfStockAlerts: active.filter((p) => p.quantity <= 0).length,
+    expiryAlerts: countExpiryAlerts(day).total,
     ledger,
     salesByUser,
     topProducts,

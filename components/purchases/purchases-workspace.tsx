@@ -21,6 +21,14 @@ import {
   listCategories,
 } from "@/lib/repositories/categories";
 import {
+  categoryNeedsLotFields,
+  DEFAULT_CATEGORY_TRACKING,
+  formatDateInput,
+  normalizeCategoryTracking,
+  parseDateInput,
+  suggestExpiryFromManufactured,
+} from "@/lib/inventory/expiry";
+import {
   createPurchase,
   listPurchases,
   setPurchaseStatus,
@@ -36,6 +44,7 @@ import {
   templatesToProductPrices,
 } from "@/lib/sales/pricing";
 import type {
+  CategoryTracking,
   PackLevelTemplate,
   ProductPackPrice,
   Purchase,
@@ -50,6 +59,10 @@ type LineDraft = {
   unitPrice: string;
   purchasePackName: string;
   unitsPerPurchasePack: string;
+  manufacturedAt: string;
+  expiresAt: string;
+  batchNumber: string;
+  serialNumber: string;
 };
 
 type NewProductForm = {
@@ -87,6 +100,10 @@ function newLine(
     unitPrice,
     purchasePackName: packName,
     unitsPerPurchasePack: units,
+    manufacturedAt: "",
+    expiresAt: "",
+    batchNumber: "",
+    serialNumber: "",
   };
 }
 
@@ -125,10 +142,16 @@ export function PurchasesWorkspace() {
     minStock: "0",
     description: "",
   });
-  const [inlineCategory, setInlineCategory] = useState({
+  const [inlineCategory, setInlineCategory] = useState<{
+    name: string;
+    baseUnitName: string;
+    packLevels: PackLevelTemplate[];
+    tracking: CategoryTracking;
+  }>({
     name: "",
     baseUnitName: "piece",
     packLevels: defaultCategoryPacks("piece"),
+    tracking: { ...DEFAULT_CATEGORY_TRACKING },
   });
 
   const suppliers = useMemo(() => listSuppliers().filter((s) => s.isActive), [version]);
@@ -252,6 +275,10 @@ export function PurchasesWorkspace() {
         unitPrice: String(item.unitPrice),
         purchasePackName: item.purchasePackName,
         unitsPerPurchasePack: String(item.unitsPerPurchasePack),
+        manufacturedAt: formatDateInput(item.manufacturedAt),
+        expiresAt: formatDateInput(item.expiresAt),
+        batchNumber: item.batchNumber ?? "",
+        serialNumber: item.serialNumber ?? "",
       })),
     );
     setError(null);
@@ -263,6 +290,7 @@ export function PurchasesWorkspace() {
       name: inlineCategory.name,
       baseUnitName: inlineCategory.baseUnitName,
       packLevels: inlineCategory.packLevels,
+      tracking: inlineCategory.tracking,
       isActive: true,
     });
     if (!result.ok) {
@@ -274,6 +302,12 @@ export function PurchasesWorkspace() {
     setNewProduct((p) => ({ ...p, categoryId: result.data.id }));
     setCategoryInlineOpen(false);
     setCategoryError(null);
+    setInlineCategory({
+      name: "",
+      baseUnitName: "piece",
+      packLevels: defaultCategoryPacks("piece"),
+      tracking: { ...DEFAULT_CATEGORY_TRACKING },
+    });
     showToast(`Categorie « ${result.data.name} » creee`, "success");
   };
 
@@ -376,6 +410,30 @@ export function PurchasesWorkspace() {
       return;
     }
 
+    for (const line of lines) {
+      const product = products.find((p) => p.id === line.productId);
+      if (!product) continue;
+      const tracking = normalizeCategoryTracking(
+        categories.find((c) => c.id === product.categoryId)?.tracking,
+      );
+      if (tracking.tracksExpiry && !parseDateInput(line.expiresAt)) {
+        setError(
+          `Date de peremption requise pour « ${product.name} » (categorie avec suivi peremption).`,
+        );
+        return;
+      }
+      if (tracking.tracksManufacturedAt && !parseDateInput(line.manufacturedAt)) {
+        setError(
+          `Date de fabrication requise pour « ${product.name} ».`,
+        );
+        return;
+      }
+      if (tracking.tracksBatchNumber && !line.batchNumber.trim()) {
+        setError(`Numero de lot requis pour « ${product.name} ».`);
+        return;
+      }
+    }
+
     const payload = {
       supplierId: supplierId || undefined,
       notes,
@@ -385,6 +443,10 @@ export function PurchasesWorkspace() {
         unitPrice: Number(line.unitPrice) || 0,
         purchasePackName: line.purchasePackName,
         unitsPerPurchasePack: Number(line.unitsPerPurchasePack) || 1,
+        manufacturedAt: parseDateInput(line.manufacturedAt),
+        expiresAt: parseDateInput(line.expiresAt),
+        batchNumber: line.batchNumber.trim() || undefined,
+        serialNumber: line.serialNumber.trim() || undefined,
       })),
     };
     const result = editingId
@@ -652,6 +714,9 @@ export function PurchasesWorkspace() {
                     placeholder="Nom, SKU ou code-barres…"
                     onChange={(productId, next) => {
                       const pack = next?.packLevels.at(-1);
+                      const category = next
+                        ? categories.find((c) => c.id === next.categoryId)
+                        : undefined;
                       setLines((prev) =>
                         prev.map((item, i) =>
                           i === index
@@ -670,6 +735,27 @@ export function PurchasesWorkspace() {
                                 unitsPerPurchasePack: next
                                   ? String(pack?.unitsOfBase ?? 1)
                                   : item.unitsPerPurchasePack,
+                                manufacturedAt: next
+                                  ? formatDateInput(next.manufacturedAt)
+                                  : "",
+                                expiresAt: next
+                                  ? formatDateInput(next.expiresAt)
+                                  : "",
+                                batchNumber: next?.batchNumber ?? "",
+                                serialNumber: next?.serialNumber ?? "",
+                                ...(category?.tracking?.defaultShelfLifeDays &&
+                                next &&
+                                !next.expiresAt &&
+                                next.manufacturedAt
+                                  ? {
+                                      expiresAt: formatDateInput(
+                                        suggestExpiryFromManufactured(
+                                          next.manufacturedAt,
+                                          category.tracking.defaultShelfLifeDays,
+                                        ),
+                                      ),
+                                    }
+                                  : {}),
                               }
                             : item,
                         ),
@@ -801,6 +887,126 @@ export function PurchasesWorkspace() {
                     )}
                   </p>
                 ) : null}
+                {(() => {
+                  const category = product
+                    ? categories.find((c) => c.id === product.categoryId)
+                    : undefined;
+                  const tracking = normalizeCategoryTracking(category?.tracking);
+                  if (!categoryNeedsLotFields(tracking)) return null;
+                  return (
+                    <div className="space-y-2 rounded-lg border border-border/80 bg-card/60 p-2">
+                      <p className="text-[11px] font-medium text-foreground">
+                        Dates / lot du nouveau stock
+                        {category ? (
+                          <span className="font-normal text-muted-foreground">
+                            {" "}
+                            · {category.name}
+                          </span>
+                        ) : null}
+                      </p>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                      {tracking.tracksManufacturedAt ? (
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-muted-foreground">
+                            Fabrication
+                          </p>
+                          <Input
+                            type="date"
+                            className="h-10"
+                            value={line.manufacturedAt}
+                            onChange={(e) => {
+                              const manufacturedAt = e.target.value;
+                              setLines((prev) =>
+                                prev.map((item, i) => {
+                                  if (i !== index) return item;
+                                  const next = { ...item, manufacturedAt };
+                                  if (
+                                    tracking.defaultShelfLifeDays &&
+                                    manufacturedAt &&
+                                    tracking.tracksExpiry
+                                  ) {
+                                    const mfg = parseDateInput(manufacturedAt);
+                                    if (mfg) {
+                                      next.expiresAt = formatDateInput(
+                                        suggestExpiryFromManufactured(
+                                          mfg,
+                                          tracking.defaultShelfLifeDays,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                  return next;
+                                }),
+                              );
+                            }}
+                          />
+                        </div>
+                      ) : null}
+                      {tracking.tracksExpiry ? (
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-muted-foreground">
+                            Peremption
+                          </p>
+                          <Input
+                            type="date"
+                            className="h-10"
+                            value={line.expiresAt}
+                            onChange={(e) =>
+                              setLines((prev) =>
+                                prev.map((item, i) =>
+                                  i === index
+                                    ? { ...item, expiresAt: e.target.value }
+                                    : item,
+                                ),
+                              )
+                            }
+                          />
+                        </div>
+                      ) : null}
+                      {tracking.tracksBatchNumber ? (
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-muted-foreground">
+                            N° lot
+                          </p>
+                          <Input
+                            className="h-10"
+                            value={line.batchNumber}
+                            onChange={(e) =>
+                              setLines((prev) =>
+                                prev.map((item, i) =>
+                                  i === index
+                                    ? { ...item, batchNumber: e.target.value }
+                                    : item,
+                                ),
+                              )
+                            }
+                          />
+                        </div>
+                      ) : null}
+                      {tracking.tracksSerialNumber ? (
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-muted-foreground">
+                            N° serie
+                          </p>
+                          <Input
+                            className="h-10"
+                            value={line.serialNumber}
+                            onChange={(e) =>
+                              setLines((prev) =>
+                                prev.map((item, i) =>
+                                  i === index
+                                    ? { ...item, serialNumber: e.target.value }
+                                    : item,
+                                ),
+                              )
+                            }
+                          />
+                        </div>
+                      ) : null}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
@@ -1060,7 +1266,7 @@ export function PurchasesWorkspace() {
         open={categoryInlineOpen}
         onOpenChange={setCategoryInlineOpen}
         title="Nouvelle categorie"
-        description="Definissez les conditionnements (paquet/cartouche, bouteille/casier…)."
+        description="Conditionnements + suivi dates (uniquement si utile pour cette famille)."
         className="max-w-lg"
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -1112,6 +1318,83 @@ export function PurchasesWorkspace() {
             setInlineCategory((p) => ({ ...p, packLevels }))
           }
         />
+        <div className="space-y-2 rounded-xl border border-border p-3">
+          <p className="text-sm font-medium">Suivi lot & dates</p>
+          <p className="text-xs text-muted-foreground">
+            Cochez seulement ce qui est pertinent (ex. bieres/cigarettes : oui —
+            smartphones : non, sauf n° serie).
+          </p>
+          {(
+            [
+              ["tracksManufacturedAt", "Date de fabrication"],
+              ["tracksExpiry", "Date de peremption"],
+              ["tracksBatchNumber", "Numero de lot"],
+              ["tracksSerialNumber", "Numero de serie"],
+            ] as const
+          ).map(([key, label]) => (
+            <label key={key} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={inlineCategory.tracking[key]}
+                onChange={(e) =>
+                  setInlineCategory((p) => ({
+                    ...p,
+                    tracking: normalizeCategoryTracking({
+                      ...p.tracking,
+                      [key]: e.target.checked,
+                    }),
+                  }))
+                }
+                className="h-4 w-4 rounded border-border"
+              />
+              {label}
+            </label>
+          ))}
+          {inlineCategory.tracking.tracksExpiry ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Alerte (jours)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={inlineCategory.tracking.expiryAlertDays}
+                  onChange={(e) =>
+                    setInlineCategory((p) => ({
+                      ...p,
+                      tracking: normalizeCategoryTracking({
+                        ...p.tracking,
+                        expiryAlertDays: Number(e.target.value) || 0,
+                      }),
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Remise suggeree %</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={90}
+                  value={
+                    inlineCategory.tracking.suggestedNearExpiryDiscountPercent ??
+                    ""
+                  }
+                  onChange={(e) =>
+                    setInlineCategory((p) => ({
+                      ...p,
+                      tracking: normalizeCategoryTracking({
+                        ...p.tracking,
+                        suggestedNearExpiryDiscountPercent: e.target.value
+                          ? Number(e.target.value) || undefined
+                          : undefined,
+                      }),
+                    }))
+                  }
+                />
+              </div>
+            </div>
+          ) : null}
+        </div>
         {categoryError ? (
           <p className="text-sm text-destructive">{categoryError}</p>
         ) : null}

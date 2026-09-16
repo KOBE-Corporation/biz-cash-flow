@@ -59,6 +59,22 @@ export function AccountingWorkspace() {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    if (!mounted) return;
+    const refresh = () => setTick((v) => v + 1);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("bcf:sale-completed", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("bcf:sale-completed", refresh);
+    };
+  }, [mounted]);
+
   const data = useMemo(() => {
     if (!mounted) return null;
     void tick;
@@ -164,17 +180,22 @@ export function AccountingWorkspace() {
         </Link>
       </div>
 
-      {(data.lowStockAlerts > 0 || data.outOfStockAlerts > 0) && (
+      {(data.lowStockAlerts > 0 ||
+        data.outOfStockAlerts > 0 ||
+        data.expiryAlerts > 0) && (
         <Link
           href="/comptabilite/stock"
           className="group flex cursor-pointer items-start gap-3 rounded-2xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm transition-colors hover:bg-warning/15 print:border-border"
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
           <div className="min-w-0 flex-1">
-            <p className="font-medium text-foreground">Alertes stock</p>
+            <p className="font-medium text-foreground">Alertes stock & peremption</p>
             <p className="text-muted-foreground">
-              {data.outOfStockAlerts} produit(s) en rupture,{" "}
-              {data.lowStockAlerts} sous le seuil minimum.
+              {data.outOfStockAlerts} rupture, {data.lowStockAlerts} seuil bas
+              {data.expiryAlerts > 0
+                ? `, ${data.expiryAlerts} peremption proche`
+                : ""}
+              .
             </p>
           </div>
           <span className="shrink-0 self-center text-xs font-medium text-primary group-hover:underline">

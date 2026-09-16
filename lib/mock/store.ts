@@ -311,6 +311,9 @@ const seedProducts: Product[] = [
     isActive: true,
     categoryId: "c4",
     supplierId: "s4",
+    manufacturedAt: new Date(2026, 2, 1),
+    expiresAt: new Date(2026, 9, 5),
+    batchNumber: "LOT-ASP-0326",
     ...ACTOR,
     createdAt: new Date("2026-06-01"),
     updatedAt: new Date("2026-06-01"),
@@ -333,6 +336,9 @@ const seedProducts: Product[] = [
     isActive: true,
     categoryId: "c5",
     supplierId: "s4",
+    manufacturedAt: new Date(2026, 5, 1),
+    expiresAt: new Date(2026, 8, 25),
+    batchNumber: "LOT-BF-0626",
     ...ACTOR,
     createdAt: new Date("2026-06-01"),
     updatedAt: new Date("2026-06-01"),
@@ -625,7 +631,7 @@ function createSeedStore(): MockStore {
 }
 
 /** Invalide le store HMR obsolete (evite mismatch SSR/client). */
-const STORE_VERSION = 6;
+const STORE_VERSION = 7;
 
 const globalStore = globalThis as unknown as {
   __bcfMockStore?: MockStore;
@@ -683,6 +689,16 @@ export function getStore(): MockStore {
           unitsOfBase: 1,
         },
       ];
+    }
+    if (!category.tracking) {
+      category.tracking = {
+        tracksManufacturedAt: false,
+        tracksExpiry: false,
+        tracksBatchNumber: false,
+        tracksSerialNumber: false,
+        expiryAlertDays: 30,
+        expiryCriticalDays: 7,
+      };
     }
   }
   for (const supplier of store.suppliers) ensureActor(supplier);

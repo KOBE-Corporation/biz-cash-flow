@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DataTable, type DataColumn } from "@/components/crud/data-table";
 import { FormDialog } from "@/components/crud/form-dialog";
 import { CrudToolbar } from "@/components/crud/toolbar";
@@ -40,6 +40,21 @@ export function InvoicesWorkspace() {
     void version;
     return listInvoices();
   }, [version]);
+
+  useEffect(() => {
+    const refresh = () => setVersion((v) => v + 1);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("bcf:sale-completed", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("bcf:sale-completed", refresh);
+    };
+  }, []);
 
   const filterFn = useCallback(
     (item: Invoice, query: string) => {

@@ -97,6 +97,8 @@ model Category {
   baseUnitName String    @default("unite")
   /// JSON: [{ id, name, unitsOfBase }]
   packLevels   Json      @default("[]")
+  /// JSON: CategoryTracking (dates, lots, alertes, remise…)
+  tracking     Json      @default("{}")
   isActive     Boolean   @default(true)
   products     Product[]
   createdById  String
@@ -150,6 +152,10 @@ model Product {
   category       Category               @relation(fields: [categoryId], references: [id])
   supplierId     String?
   supplier       Supplier?              @relation(fields: [supplierId], references: [id])
+  manufacturedAt DateTime?
+  expiresAt      DateTime?
+  batchNumber    String?
+  serialNumber   String?
   movements      StockMovement[]
   invoiceItems   InvoiceItem[]
   purchaseItems  PurchaseItem[]
@@ -166,6 +172,7 @@ model Product {
   @@index([sku])
   @@index([barcode])
   @@index([isActive])
+  @@index([expiresAt])
   @@index([createdById])
   @@index([updatedById])
 }
@@ -240,15 +247,19 @@ model Purchase {
 }
 
 model PurchaseItem {
-  id                   String   @id @default(cuid())
+  id                   String    @id @default(cuid())
   purchaseId           String
-  purchase             Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  purchase             Purchase  @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
   productId            String
-  product              Product  @relation(fields: [productId], references: [id])
+  product              Product   @relation(fields: [productId], references: [id])
   quantity             Int
-  unitPrice            Decimal  @db.Decimal(12, 2)
-  purchasePackName     String   @default("lot")
-  unitsPerPurchasePack Int      @default(1)
+  unitPrice            Decimal   @db.Decimal(12, 2)
+  purchasePackName     String    @default("lot")
+  unitsPerPurchasePack Int       @default(1)
+  manufacturedAt       DateTime?
+  expiresAt            DateTime?
+  batchNumber          String?
+  serialNumber         String?
 
   @@index([purchaseId])
   @@index([productId])

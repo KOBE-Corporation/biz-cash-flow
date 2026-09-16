@@ -1,7 +1,7 @@
 # Biz Cash Flow — Roadmap & analyse produit
 
 Document de reference pour la vision metier, l’etat actuel et le plan d’implementation.
-Derniere mise a jour : 28 juillet 2026.
+Derniere mise a jour : 16 septembre 2026.
 
 ---
 
@@ -84,6 +84,8 @@ Achat frequent en casier ; revente a l’unite ou au casier.
 - [x] Journal de caisse IN/OUT (CashLedgerEntry) + auto-poste vente/achat + user
 - [x] Documentation (`docs/`, README, guide)
 - [x] Tracabilite User sur toutes les operations (schema + repos + AuditLog)
+- [x] Categories : politique flexible (fabrication, peremption, lot, serie, alertes, remise)
+- [x] Produits / achats : dates & lots selon categorie + alertes peremption (remise suggeree)
 - [ ] Vente multi-packs dans `/sales` (choix paquet / cartouche / casier)
 - [ ] Decrement stock en unites de base selon le pack vendu
 - [ ] Blocage vente si stock < unites du pack choisi (message clair)

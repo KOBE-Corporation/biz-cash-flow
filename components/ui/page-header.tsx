@@ -63,6 +63,9 @@ type StatCardProps = {
   value: string | number;
   subtitle?: string;
   icon?: React.ReactNode;
+  className?: string;
+  active?: boolean;
+  onClick?: () => void;
 } & VariantProps<typeof statCardVariants>;
 
 export function StatCard({
@@ -71,9 +74,35 @@ export function StatCard({
   subtitle,
   icon,
   variant = "default",
+  className,
+  active = false,
+  onClick,
 }: StatCardProps) {
+  const clickable = typeof onClick === "function";
+
   return (
-    <Card className={cn(statCardVariants({ variant }))}>
+    <Card
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={
+        clickable
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+      className={cn(
+        statCardVariants({ variant }),
+        clickable &&
+          "cursor-pointer transition-colors hover:bg-surface-active/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        active && "ring-2 ring-ring/60",
+        className,
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-3xl font-bold tracking-tight text-foreground">

@@ -15,6 +15,10 @@ import { ToastViewport, useToast } from "@/components/ui/toast";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
 import { useEntityList } from "@/hooks/use-entity-list";
 import {
+  DEFAULT_CATEGORY_TRACKING,
+  normalizeCategoryTracking,
+} from "@/lib/inventory/expiry";
+import {
   countProductsInCategory,
   createCategory,
   listCategories,
@@ -22,13 +26,14 @@ import {
   updateCategory,
 } from "@/lib/repositories/categories";
 import { createPackLevelId } from "@/lib/sales/pricing";
-import type { Category, PackLevelTemplate } from "@/lib/types";
+import type { Category, CategoryTracking, PackLevelTemplate } from "@/lib/types";
 
 type CategoryFormState = {
   name: string;
   description: string;
   baseUnitName: string;
   packLevels: PackLevelTemplate[];
+  tracking: CategoryTracking;
   isActive: boolean;
 };
 
@@ -47,8 +52,18 @@ const emptyForm = (): CategoryFormState => ({
   description: "",
   baseUnitName: "piece",
   packLevels: defaultPackLevels("piece"),
+  tracking: { ...DEFAULT_CATEGORY_TRACKING },
   isActive: true,
 });
+
+function trackingSummary(tracking: CategoryTracking) {
+  const tags: string[] = [];
+  if (tracking.tracksExpiry) tags.push("Peremption");
+  if (tracking.tracksManufacturedAt) tags.push("Fabrication");
+  if (tracking.tracksBatchNumber) tags.push("Lot");
+  if (tracking.tracksSerialNumber) tags.push("Serie");
+  return tags.length ? tags.join(" · ") : "Aucun suivi date";
+}
 
 export function CategoriesWorkspace() {
   const { confirm, dialog } = useConfirmDialog();
@@ -74,6 +89,13 @@ export function CategoriesWorkspace() {
 
   const list = useEntityList(items, filterFn);
   const activeCount = items.filter((item) => item.isActive).length;
+  const trackedCount = items.filter(
+    (item) =>
+      item.tracking?.tracksExpiry ||
+      item.tracking?.tracksManufacturedAt ||
+      item.tracking?.tracksBatchNumber ||
+      item.tracking?.tracksSerialNumber,
+  ).length;
 
   const openCreate = () => {
     setForm(emptyForm());
@@ -87,10 +109,18 @@ export function CategoriesWorkspace() {
       description: item.description ?? "",
       baseUnitName: item.baseUnitName,
       packLevels: item.packLevels.map((level) => ({ ...level })),
+      tracking: normalizeCategoryTracking(item.tracking),
       isActive: item.isActive,
     });
     setError(null);
     list.openEdit(item);
+  };
+
+  const patchTracking = (patch: Partial<CategoryTracking>) => {
+    setForm((prev) => ({
+      ...prev,
+      tracking: normalizeCategoryTracking({ ...prev.tracking, ...patch }),
+    }));
   };
 
   const handleSave = () => {
@@ -99,6 +129,7 @@ export function CategoriesWorkspace() {
       description: form.description,
       baseUnitName: form.baseUnitName,
       packLevels: form.packLevels,
+      tracking: form.tracking,
       isActive: form.isActive,
     };
     const result = list.editing
@@ -163,6 +194,15 @@ export function CategoriesWorkspace() {
       ),
     },
     {
+      key: "tracking",
+      header: "Suivi",
+      cell: (row) => (
+        <span className="text-xs text-muted-foreground">
+          {trackingSummary(normalizeCategoryTracking(row.tracking))}
+        </span>
+      ),
+    },
+    {
       key: "products",
       header: "Produits",
       cell: (row) => (
@@ -211,7 +251,7 @@ export function CategoriesWorkspace() {
     <div className="space-y-6">
       <PageHeader
         title="Categories"
-        description="Definissez l'unite de base et les niveaux de gros avant d'acheter un produit."
+        description="Unite de base, conditionnements, et politique de suivi (dates, lots, alertes)."
         actions={
           <Button variant="success" onClick={openCreate}>
             <Plus className="h-4 w-4" />
@@ -220,9 +260,14 @@ export function CategoriesWorkspace() {
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-3">
         <StatCard title="Categories" value={items.length} />
         <StatCard title="Actives" value={activeCount} variant="success" />
+        <StatCard
+          title="Avec suivi date/lot"
+          value={trackedCount}
+          variant="warning"
+        />
       </div>
 
       <CrudToolbar
@@ -247,8 +292,8 @@ export function CategoriesWorkspace() {
           else list.setFormOpen(true);
         }}
         title={list.editing ? "Modifier la categorie" : "Nouvelle categorie"}
-        description="Indispensable avant l'achat : unite de base + conditionnements."
-        className="max-w-lg"
+        description="Activez uniquement les suivis utiles pour cette famille de produits."
+        className="max-w-xl"
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={list.closeForm}>
@@ -309,6 +354,127 @@ export function CategoriesWorkspace() {
             setForm((prev) => ({ ...prev, packLevels }))
           }
         />
+
+        <div className="space-y-3 rounded-xl border border-border p-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              Suivi lot & dates
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Ces options pilotent les champs produit, les alertes de
+              peremption et les remises suggerees.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.tracking.tracksManufacturedAt}
+              onChange={(e) =>
+                patchTracking({ tracksManufacturedAt: e.target.checked })
+              }
+              className="h-4 w-4 rounded border-border"
+            />
+            Date de fabrication
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.tracking.tracksExpiry}
+              onChange={(e) =>
+                patchTracking({ tracksExpiry: e.target.checked })
+              }
+              className="h-4 w-4 rounded border-border"
+            />
+            Date de peremption
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.tracking.tracksBatchNumber}
+              onChange={(e) =>
+                patchTracking({ tracksBatchNumber: e.target.checked })
+              }
+              className="h-4 w-4 rounded border-border"
+            />
+            Numero de lot
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.tracking.tracksSerialNumber}
+              onChange={(e) =>
+                patchTracking({ tracksSerialNumber: e.target.checked })
+              }
+              className="h-4 w-4 rounded border-border"
+            />
+            Numero de serie
+          </label>
+
+          {form.tracking.tracksExpiry ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Alerte (jours avant)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.tracking.expiryAlertDays}
+                  onChange={(e) =>
+                    patchTracking({
+                      expiryAlertDays: Number(e.target.value) || 0,
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Critique (jours avant)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.tracking.expiryCriticalDays}
+                  onChange={(e) =>
+                    patchTracking({
+                      expiryCriticalDays: Number(e.target.value) || 0,
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Duree de vie defaut (jours)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={form.tracking.defaultShelfLifeDays ?? ""}
+                  onChange={(e) =>
+                    patchTracking({
+                      defaultShelfLifeDays: e.target.value
+                        ? Number(e.target.value) || undefined
+                        : undefined,
+                    })
+                  }
+                  placeholder="Ex. 180"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Remise suggeree (%)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={90}
+                  value={form.tracking.suggestedNearExpiryDiscountPercent ?? ""}
+                  onChange={(e) =>
+                    patchTracking({
+                      suggestedNearExpiryDiscountPercent: e.target.value
+                        ? Number(e.target.value) || undefined
+                        : undefined,
+                    })
+                  }
+                  placeholder="Ex. 15"
+                />
+              </div>
+            </div>
+          ) : null}
+        </div>
+
         <label className="flex items-center gap-2 text-sm text-foreground">
           <input
             type="checkbox"

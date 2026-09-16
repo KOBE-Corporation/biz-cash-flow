@@ -7,6 +7,11 @@ import { DataTable, type DataColumn } from "@/components/crud/data-table";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { PageHeader, StatCard } from "@/components/ui/page-header";
+import {
+  formatDisplayDate,
+  type ExpiryAlertRow,
+} from "@/lib/inventory/expiry";
+import { listExpiryAlerts } from "@/lib/repositories/expiry-alerts";
 import { listProducts } from "@/lib/repositories/products";
 import type { Product } from "@/lib/types";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -18,16 +23,18 @@ function stockTone(product: Product) {
 }
 
 export function StockAlertsWorkspace() {
-  const alerts = useMemo(() => {
+  const stockAlerts = useMemo(() => {
     return listProducts()
       .filter((p) => p.isActive && stockTone(p) !== "ok")
       .sort((a, b) => a.quantity - b.quantity);
   }, []);
 
-  const outCount = alerts.filter((p) => stockTone(p) === "out").length;
-  const lowCount = alerts.filter((p) => stockTone(p) === "low").length;
+  const expiryAlerts = useMemo(() => listExpiryAlerts(), []);
 
-  const columns: DataColumn<Product>[] = [
+  const outCount = stockAlerts.filter((p) => stockTone(p) === "out").length;
+  const lowCount = stockAlerts.filter((p) => stockTone(p) === "low").length;
+
+  const stockColumns: DataColumn<Product>[] = [
     {
       key: "product",
       header: "Produit",
@@ -85,11 +92,77 @@ export function StockAlertsWorkspace() {
     },
   ];
 
+  const expiryColumns: DataColumn<ExpiryAlertRow>[] = [
+    {
+      key: "product",
+      header: "Produit",
+      cell: (row) => (
+        <div className="min-w-0">
+          <p className="truncate font-medium">{row.product.name}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {row.product.sku}
+            {row.product.batchNumber ? ` · Lot ${row.product.batchNumber}` : ""}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: "expiry",
+      header: "Peremption",
+      cell: (row) => (
+        <span className="text-xs tabular-nums">
+          {formatDisplayDate(row.product.expiresAt)}
+        </span>
+      ),
+    },
+    {
+      key: "days",
+      header: "Jours",
+      cell: (row) => (
+        <span className="tabular-nums text-xs">
+          {row.daysLeft < 0 ? `${row.daysLeft} j` : `${row.daysLeft} j`}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Statut",
+      cell: (row) =>
+        row.status === "expired" ? (
+          <Badge variant="danger">Perime</Badge>
+        ) : row.status === "critical" ? (
+          <Badge variant="danger">Critique</Badge>
+        ) : (
+          <Badge variant="warning">Bientot</Badge>
+        ),
+    },
+    {
+      key: "discount",
+      header: "Remise suggeree",
+      cell: (row) => (
+        <span className="text-xs font-medium tabular-nums text-primary">
+          {row.suggestedDiscountPercent > 0
+            ? `−${row.suggestedDiscountPercent} %`
+            : "—"}
+        </span>
+      ),
+    },
+    {
+      key: "qty",
+      header: "Stock",
+      cell: (row) => (
+        <span className="tabular-nums text-xs">
+          {row.product.quantity} {row.product.baseUnitName}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Stock — alertes"
-        description="Produits en rupture ou sous le seuil minimum (depuis Comptabilite)."
+        description="Ruptures, seuils bas et produits proches de la peremption (pour ecouler avec remise)."
         actions={
           <div className="flex flex-wrap gap-2">
             <Link
@@ -109,19 +182,42 @@ export function StockAlertsWorkspace() {
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <StatCard title="Alertes" value={alerts.length} />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard title="Alertes stock" value={stockAlerts.length} />
         <StatCard title="Ruptures" value={outCount} variant="danger" />
         <StatCard title="Stock faible" value={lowCount} variant="warning" />
+        <StatCard
+          title="Peremption"
+          value={expiryAlerts.length}
+          variant={expiryAlerts.length > 0 ? "warning" : "success"}
+        />
       </div>
 
-      <DataTable
-        rows={alerts}
-        columns={columns}
-        rowKey={(row) => row.id}
-        emptyTitle="Aucune alerte stock"
-        emptyDescription="Tous les produits actifs sont au-dessus du seuil."
-      />
+      <section className="space-y-3">
+        <h2 className="text-base font-semibold">Stock faible / rupture</h2>
+        <DataTable
+          rows={stockAlerts}
+          columns={stockColumns}
+          rowKey={(row) => row.id}
+          emptyTitle="Aucune alerte stock"
+          emptyDescription="Tous les produits actifs sont au-dessus du seuil."
+        />
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-base font-semibold">Peremption proche</h2>
+        <p className="text-sm text-muted-foreground">
+          Seuils et remise definis sur la categorie. Idees pour limiter les
+          pertes : promo, pack promo, priorite de vente.
+        </p>
+        <DataTable
+          rows={expiryAlerts}
+          columns={expiryColumns}
+          rowKey={(row) => row.product.id}
+          emptyTitle="Aucune alerte peremption"
+          emptyDescription="Aucun produit suivi n'approche de sa date limite."
+        />
+      </section>
     </div>
   );
 }

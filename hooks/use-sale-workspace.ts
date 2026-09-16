@@ -12,7 +12,7 @@ import {
   getAvailableStock,
   paymentMethodShortcuts,
 } from "@/lib/sales/cart";
-import { createSaleInvoice } from "@/lib/actions/sales";
+import { createSale } from "@/lib/repositories/sales";
 import { CURRENT_USER } from "@/lib/auth/current-user";
 import { isTypingTarget } from "@/lib/sales/shortcuts";
 import { openSalesShortcutsHelp } from "@/lib/sales/events";
@@ -33,9 +33,10 @@ export function useSaleWorkspace() {
   const validateRef = useRef<HTMLButtonElement>(null);
 
   const products = useMemo(() => {
+    void state.catalogEpoch;
     const searched = searchProducts(state.query, getCatalogProducts());
     return filterProductsByStock(searched, state.stockFilter, state.lines);
-  }, [state.query, state.stockFilter, state.lines]);
+  }, [state.query, state.stockFilter, state.lines, state.catalogEpoch]);
 
   const totals = useMemo(() => getSaleTotals(state), [state]);
   const clientName = resolveClientName(state);
@@ -156,7 +157,7 @@ export function useSaleWorkspace() {
 
     dispatch({ type: "SET_CHECKOUT_LOADING", loading: true });
     try {
-      const result = await createSaleInvoice({
+      const result = createSale({
         lines: snapshot.lines,
         customerName: snapshot.customerName,
         paymentMethod: snapshot.paymentMethod,
@@ -178,9 +179,16 @@ export function useSaleWorkspace() {
       dispatch({ type: "SALE_SUCCESS", bumpClient });
       dispatch({
         type: "TOAST",
-        message: `Vente ${result.invoiceNumber} — ${snapshot.customerName} — ${formatCurrency(snapshot.total)}`,
+        message: `Vente ${result.data.invoiceNumber} — ${snapshot.customerName} — ${formatCurrency(snapshot.total)}`,
         tone: "success",
       });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("bcf:sale-completed", {
+            detail: { invoiceNumber: result.data.invoiceNumber },
+          }),
+        );
+      }
       queueMicrotask(() => searchRef.current?.focus());
     } finally {
       dispatch({ type: "SET_CHECKOUT_LOADING", loading: false });
