@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -13,6 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader, StatCard } from "@/components/ui/page-header";
+import { useBcfRefresh } from "@/hooks/use-bcf-refresh";
 import { paymentMethodLabels } from "@/lib/sales/cart";
 import { getDailyAccounting } from "@/lib/repositories/accounting";
 import { formatCurrency } from "@/lib/utils";
@@ -52,36 +53,13 @@ function formatDayLabel(date: Date) {
 }
 
 export function AccountingWorkspace() {
-  const [tick, setTick] = useState(0);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-    const refresh = () => setTick((v) => v + 1);
-    const onVisible = () => {
-      if (document.visibilityState === "visible") refresh();
-    };
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("bcf:sale-completed", refresh);
-    window.addEventListener("bcf:invoice-cancelled", refresh);
-    return () => {
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("bcf:sale-completed", refresh);
-      window.removeEventListener("bcf:invoice-cancelled", refresh);
-    };
-  }, [mounted]);
+  const { version, mounted } = useBcfRefresh();
 
   const data = useMemo(() => {
     if (!mounted) return null;
-    void tick;
+    void version;
     return getDailyAccounting(new Date());
-  }, [tick, mounted]);
+  }, [version, mounted]);
 
   const handlePrint = () => {
     window.print();

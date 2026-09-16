@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { DataTable, type DataColumn } from "@/components/crud/data-table";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { PageHeader, StatCard } from "@/components/ui/page-header";
+import { useBcfRefresh } from "@/hooks/use-bcf-refresh";
 import { listCashLedgerForDay } from "@/lib/repositories/cash-ledger";
 import { getPurchase } from "@/lib/repositories/purchases";
 import { getInvoice } from "@/lib/repositories/invoices";
@@ -60,34 +61,18 @@ type Props = {
 };
 
 export function CashMovementsWorkspace({ direction }: Props) {
-  const [mounted, setMounted] = useState(false);
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-    const refresh = () => setTick((v) => v + 1);
-    window.addEventListener("focus", refresh);
-    window.addEventListener("bcf:sale-completed", refresh);
-    return () => {
-      window.removeEventListener("focus", refresh);
-      window.removeEventListener("bcf:sale-completed", refresh);
-    };
-  }, [mounted]);
+  const { version, mounted } = useBcfRefresh();
 
   const day = useMemo(() => {
-    void tick;
+    void version;
     return new Date();
-  }, [tick]);
+  }, [version]);
 
   const entries = useMemo(() => {
     if (!mounted) return [];
-    void tick;
+    void version;
     return listCashLedgerForDay(day).filter((e) => e.direction === direction);
-  }, [direction, day, mounted, tick]);
+  }, [direction, day, mounted, version]);
 
   const total = entries.reduce((sum, e) => sum + e.amount, 0);
   const bySource = useMemo(() => {

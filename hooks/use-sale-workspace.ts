@@ -24,6 +24,7 @@ import {
   saleReducer,
   initialSaleState,
 } from "@/lib/sales/sale-state";
+import { dispatchBcfEvent, BCF_EVENTS } from "@/lib/events/bcf-events";
 import { formatCurrency } from "@/lib/utils";
 
 export function useSaleWorkspace() {
@@ -199,11 +200,12 @@ export function useSaleWorkspace() {
         tone: "success",
       });
       if (typeof window !== "undefined") {
-        window.dispatchEvent(
-          new CustomEvent("bcf:sale-completed", {
-            detail: { invoiceNumber: result.data.invoiceNumber },
-          }),
-        );
+        dispatchBcfEvent(BCF_EVENTS.SALE_COMPLETED, {
+          invoiceNumber: result.data.invoiceNumber,
+        });
+        dispatchBcfEvent(BCF_EVENTS.STOCK_CHANGED, {
+          invoiceNumber: result.data.invoiceNumber,
+        });
       }
       queueMicrotask(() => searchRef.current?.focus());
     } finally {

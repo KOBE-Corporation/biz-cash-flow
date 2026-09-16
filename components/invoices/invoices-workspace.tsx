@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { Mail, MessageCircle, Printer } from "lucide-react";
 import { DataTable, type DataColumn } from "@/components/crud/data-table";
@@ -14,8 +14,10 @@ import { PageHeader, StatCard } from "@/components/ui/page-header";
 import { Separator } from "@/components/ui/separator";
 import { ToastViewport, useToast } from "@/components/ui/toast";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
+import { useBcfRefresh } from "@/hooks/use-bcf-refresh";
 import { useEntityList } from "@/hooks/use-entity-list";
 import { siteConfig } from "@/lib/constants/site";
+import { dispatchBcfEvent, BCF_EVENTS } from "@/lib/events/bcf-events";
 import { paymentMethodLabels } from "@/lib/sales/cart";
 import {
   buildInvoiceSharePayload,
@@ -78,7 +80,7 @@ function toInputDate(d: Date) {
 export function InvoicesWorkspace() {
   const { dialog } = useConfirmDialog();
   const { toast, showToast } = useToast();
-  const [version, setVersion] = useState(0);
+  const { version, bump } = useBcfRefresh();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [issuerFilter, setIssuerFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
@@ -120,25 +122,6 @@ export function InvoicesWorkspace() {
       .filter((i) => i.status === "PAID" && isSameDay(new Date(i.issuedAt), today))
       .reduce((sum, i) => sum + i.totalAmount, 0);
   }, [items]);
-
-  useEffect(() => {
-    const refresh = () => setVersion((v) => v + 1);
-    const onVisible = () => {
-      if (document.visibilityState === "visible") refresh();
-    };
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("bcf:sale-completed", refresh);
-    window.addEventListener("bcf:invoice-cancelled", refresh);
-    window.addEventListener("bcf:invoice-paid", refresh);
-    return () => {
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("bcf:sale-completed", refresh);
-      window.removeEventListener("bcf:invoice-cancelled", refresh);
-      window.removeEventListener("bcf:invoice-paid", refresh);
-    };
-  }, []);
 
   const filterFn = useCallback(
     (item: Invoice, query: string) => {
@@ -213,7 +196,7 @@ export function InvoicesWorkspace() {
     const result = updateInvoiceNotes(selected.id, notes);
     if (result.ok) {
       setSelected(result.data);
-      setVersion((v) => v + 1);
+      bump();
       showToast("Notes enregistrees", "success");
     } else {
       showToast(result.error, "error");
@@ -234,16 +217,17 @@ export function InvoicesWorkspace() {
     }
     setSelected(result.data);
     setCancelOpen(false);
-    setVersion((v) => v + 1);
+    bump();
     showToast(
       `Facture ${result.data.number} annulee — caisse + stock mis a jour`,
       "success",
     );
-    window.dispatchEvent(
-      new CustomEvent("bcf:invoice-cancelled", {
-        detail: { invoiceNumber: result.data.number },
-      }),
-    );
+    dispatchBcfEvent(BCF_EVENTS.INVOICE_CANCELLED, {
+      invoiceNumber: result.data.number,
+    });
+    dispatchBcfEvent(BCF_EVENTS.STOCK_CHANGED, {
+      invoiceNumber: result.data.number,
+    });
   };
 
   const handlePayment = () => {
@@ -255,7 +239,7 @@ export function InvoicesWorkspace() {
       return;
     }
     setSelected(result.data);
-    setVersion((v) => v + 1);
+    bump();
     setPayAmount(
       getInvoiceBalance(result.data) > 0
         ? String(getInvoiceBalance(result.data))
@@ -265,11 +249,9 @@ export function InvoicesWorkspace() {
       `Encaissement ${formatCurrency(amount)} — ${statusLabel(result.data.status)}`,
       "success",
     );
-    window.dispatchEvent(
-      new CustomEvent("bcf:invoice-paid", {
-        detail: { invoiceNumber: result.data.number },
-      }),
-    );
+    dispatchBcfEvent(BCF_EVENTS.INVOICE_PAID, {
+      invoiceNumber: result.data.number,
+    });
   };
 
   const handleReminder = () => {
@@ -280,7 +262,7 @@ export function InvoicesWorkspace() {
       return;
     }
     setSelected(result.data.invoice);
-    setVersion((v) => v + 1);
+    bump();
     window.open(result.data.whatsappUrl, "_blank", "noopener,noreferrer");
     showToast("Relance WhatsApp ouverte", "success");
   };
@@ -315,16 +297,17 @@ export function InvoicesWorkspace() {
     setCreditOpen(false);
     setCreditAmount("");
     setCreditReason("");
-    setVersion((v) => v + 1);
+    bump();
     showToast(
       `Avoir ${result.data.creditNote.number} — ${formatCurrency(amount)}`,
       "success",
     );
-    window.dispatchEvent(
-      new CustomEvent("bcf:invoice-cancelled", {
-        detail: { invoiceNumber: selected.number },
-      }),
-    );
+    dispatchBcfEvent(BCF_EVENTS.CREDIT_NOTE, {
+      invoiceNumber: selected.number,
+    });
+    dispatchBcfEvent(BCF_EVENTS.STOCK_CHANGED, {
+      invoiceNumber: selected.number,
+    });
   };
 
   const columns: DataColumn<Invoice>[] = [

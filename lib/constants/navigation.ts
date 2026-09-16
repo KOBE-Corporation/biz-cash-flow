@@ -23,16 +23,16 @@ export type BreadcrumbItem = {
 };
 
 export const mainNavigation: NavItem[] = [
-  { label: "Dashboard", href: "/", icon: LayoutDashboard },
+  { label: "Tableau de bord", href: "/", icon: LayoutDashboard },
   { label: "Vente", href: "/sales", icon: CircleDollarSign },
+  { label: "Factures", href: "/factures", icon: FileText },
   { label: "Produits", href: "/produits", icon: Boxes },
   { label: "Categories", href: "/categories", icon: List },
-  { label: "Mouvements de stock", href: "/mouvements", icon: ArrowLeftRight },
+  { label: "Mouvements", href: "/mouvements", icon: ArrowLeftRight },
   { label: "Fournisseurs", href: "/fournisseurs", icon: Truck },
 ];
 
 export const secondaryNavigation: NavItem[] = [
-  { label: "Factures", href: "/factures", icon: FileText },
   { label: "Achats", href: "/achats", icon: ShoppingCart },
   { label: "Comptabilite", href: "/comptabilite", icon: Wallet },
 ];
@@ -45,15 +45,15 @@ export const allNavigation: NavItem[] = [
 const segmentLabels: Record<string, string> = {
   sales: "Vente",
   produits: "Produits",
-  mouvements: "Mouvements de stock",
+  mouvements: "Mouvements",
   categories: "Categories",
   fournisseurs: "Fournisseurs",
   factures: "Factures",
   achats: "Achats",
   comptabilite: "Comptabilite",
-  stock: "Stock",
-  sorties: "Sorties",
-  entrees: "Entrees",
+  stock: "Alertes stock",
+  sorties: "Sorties caisse",
+  entrees: "Entrees caisse",
   nouveau: "Nouveau",
   edit: "Modifier",
 };
@@ -78,10 +78,10 @@ export function findNavItem(pathname: string): NavItem | undefined {
 
 export function getBreadcrumbs(pathname: string): BreadcrumbItem[] {
   if (pathname === "/") {
-    return [{ label: "Dashboard", href: "/" }];
+    return [{ label: "Tableau de bord", href: "/" }];
   }
 
-  const crumbs: BreadcrumbItem[] = [{ label: "Dashboard", href: "/" }];
+  const crumbs: BreadcrumbItem[] = [{ label: "Tableau de bord", href: "/" }];
   const segments = pathname.split("/").filter(Boolean);
   let href = "";
 

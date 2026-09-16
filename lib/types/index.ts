@@ -324,6 +324,16 @@ export type DashboardStats = {
   stockValue: number;
   lowStockCount: number;
   outOfStockCount: number;
+  /** CA encaissé aujourd'hui (factures payees du jour). */
+  todaySalesTotal: number;
+  todaySalesCount: number;
+  /** Solde caisse du jour (entrees − sorties). */
+  todayNetCash: number;
+  /** Factures avec solde restant. */
+  unpaidCount: number;
+  unpaidTotal: number;
+  /** Alertes peremption. */
+  expiryAlertCount: number;
 };
 
 export type CartLine = {
