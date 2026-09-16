@@ -6,8 +6,8 @@ import { CheckoutPanel } from "@/components/sales/checkout-panel";
 import { ReimbursementPanel } from "@/components/sales/reimbursement-panel";
 import { SaleInvoicePreviewDialog } from "@/components/sales/sale-invoice-preview-dialog";
 import { ConfirmDialog } from "@/components/ui/dialog";
+import { ToastViewport } from "@/components/ui/toast";
 import { useSaleWorkspace } from "@/hooks/use-sale-workspace";
-import { cn } from "@/lib/utils";
 
 export function SalesWorkspace() {
   const {
@@ -107,23 +107,9 @@ export function SalesWorkspace() {
             />
           </div>
         </div>
-
-        {state.toast ? (
-          <div
-            className={cn(
-              "pointer-events-none fixed bottom-4 left-1/2 z-20 max-w-[90vw] -translate-x-1/2 rounded-full border px-4 py-2 text-sm shadow-card md:absolute",
-              state.toast.tone === "success" &&
-                "border-success/40 bg-success text-success-foreground",
-              state.toast.tone === "error" &&
-                "border-destructive/40 bg-destructive text-destructive-foreground",
-              state.toast.tone === "info" &&
-                "border-border bg-popover text-foreground",
-            )}
-          >
-            <span className="block truncate">{state.toast.message}</span>
-          </div>
-        ) : null}
       </div>
+
+      <ToastViewport toast={state.toast} />
 
       <ConfirmDialog
         open={state.clearOpen}

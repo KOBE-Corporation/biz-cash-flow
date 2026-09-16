@@ -699,6 +699,16 @@ export function getStore(): MockStore {
         expiryAlertDays: 30,
         expiryCriticalDays: 7,
       };
+    } else {
+      category.tracking = {
+        tracksManufacturedAt: false,
+        tracksExpiry: false,
+        tracksBatchNumber: false,
+        tracksSerialNumber: false,
+        expiryAlertDays: 30,
+        expiryCriticalDays: 7,
+        ...category.tracking,
+      };
     }
   }
   for (const supplier of store.suppliers) ensureActor(supplier);

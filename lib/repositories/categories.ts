@@ -25,13 +25,21 @@ export type CategoryInput = {
 };
 
 export function listCategories() {
-  return [...getStore().categories].sort((a, b) =>
-    a.name.localeCompare(b.name, "fr"),
-  );
+  return [...getStore().categories]
+    .map((category) => ({
+      ...category,
+      tracking: normalizeCategoryTracking(category.tracking),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "fr"));
 }
 
 export function getCategory(id: string) {
-  return getStore().categories.find((item) => item.id === id) ?? null;
+  const category = getStore().categories.find((item) => item.id === id) ?? null;
+  if (!category) return null;
+  return {
+    ...category,
+    tracking: normalizeCategoryTracking(category.tracking),
+  };
 }
 
 export function countProductsInCategory(categoryId: string) {

@@ -151,8 +151,10 @@ export function PurchasesWorkspace() {
     name: "",
     baseUnitName: "piece",
     packLevels: defaultCategoryPacks("piece"),
-    tracking: { ...DEFAULT_CATEGORY_TRACKING },
+    tracking: normalizeCategoryTracking(DEFAULT_CATEGORY_TRACKING),
   });
+
+  const inlineTracking = normalizeCategoryTracking(inlineCategory.tracking);
 
   const suppliers = useMemo(() => listSuppliers().filter((s) => s.isActive), [version]);
   const categories = useMemo(() => listCategories().filter((c) => c.isActive), [version]);
@@ -290,7 +292,7 @@ export function PurchasesWorkspace() {
       name: inlineCategory.name,
       baseUnitName: inlineCategory.baseUnitName,
       packLevels: inlineCategory.packLevels,
-      tracking: inlineCategory.tracking,
+      tracking: normalizeCategoryTracking(inlineCategory.tracking),
       isActive: true,
     });
     if (!result.ok) {
@@ -306,7 +308,7 @@ export function PurchasesWorkspace() {
       name: "",
       baseUnitName: "piece",
       packLevels: defaultCategoryPacks("piece"),
-      tracking: { ...DEFAULT_CATEGORY_TRACKING },
+      tracking: normalizeCategoryTracking(DEFAULT_CATEGORY_TRACKING),
     });
     showToast(`Categorie « ${result.data.name} » creee`, "success");
   };
@@ -1335,12 +1337,12 @@ export function PurchasesWorkspace() {
             <label key={key} className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
-                checked={inlineCategory.tracking[key]}
+                checked={inlineTracking[key]}
                 onChange={(e) =>
                   setInlineCategory((p) => ({
                     ...p,
                     tracking: normalizeCategoryTracking({
-                      ...p.tracking,
+                      ...normalizeCategoryTracking(p.tracking),
                       [key]: e.target.checked,
                     }),
                   }))
@@ -1350,19 +1352,19 @@ export function PurchasesWorkspace() {
               {label}
             </label>
           ))}
-          {inlineCategory.tracking.tracksExpiry ? (
+          {inlineTracking.tracksExpiry ? (
             <div className="grid gap-2 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label className="text-xs">Alerte (jours)</Label>
                 <Input
                   type="number"
                   min={0}
-                  value={inlineCategory.tracking.expiryAlertDays}
+                  value={inlineTracking.expiryAlertDays}
                   onChange={(e) =>
                     setInlineCategory((p) => ({
                       ...p,
                       tracking: normalizeCategoryTracking({
-                        ...p.tracking,
+                        ...normalizeCategoryTracking(p.tracking),
                         expiryAlertDays: Number(e.target.value) || 0,
                       }),
                     }))
@@ -1376,14 +1378,13 @@ export function PurchasesWorkspace() {
                   min={0}
                   max={90}
                   value={
-                    inlineCategory.tracking.suggestedNearExpiryDiscountPercent ??
-                    ""
+                    inlineTracking.suggestedNearExpiryDiscountPercent ?? ""
                   }
                   onChange={(e) =>
                     setInlineCategory((p) => ({
                       ...p,
                       tracking: normalizeCategoryTracking({
-                        ...p.tracking,
+                        ...normalizeCategoryTracking(p.tracking),
                         suggestedNearExpiryDiscountPercent: e.target.value
                           ? Number(e.target.value) || undefined
                           : undefined,
