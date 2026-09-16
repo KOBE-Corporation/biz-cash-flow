@@ -134,6 +134,38 @@ export function updateCategory(
     updatedAt: touch(),
   };
   store.categories[index] = updated;
+
+  // Resync des niveaux de conditionnement sur les produits de la categorie
+  // (conserve les prix de vente existants quand le niveau matche).
+  for (const product of store.products) {
+    if (product.categoryId !== id) continue;
+    const previousByKey = new Map(
+      product.packLevels.map((level) => [
+        `${level.name.toLowerCase()}::${level.unitsOfBase}`,
+        level,
+      ]),
+    );
+    product.packLevels = updated.packLevels.map((level) => {
+      const prev =
+        previousByKey.get(
+          `${level.name.toLowerCase()}::${level.unitsOfBase}`,
+        ) ??
+        product.packLevels.find((p) => p.unitsOfBase === level.unitsOfBase);
+      return {
+        id: prev?.id ?? level.id,
+        name: level.name,
+        unitsOfBase: level.unitsOfBase,
+        salePrice:
+          prev?.salePrice ??
+          (level.unitsOfBase === 1
+            ? product.salePrice
+            : product.salePrice * level.unitsOfBase),
+      };
+    });
+    product.baseUnitName = updated.baseUnitName;
+    product.updatedAt = touch();
+  }
+
   recordAudit({
     action: "UPDATE",
     entityType: "Category",

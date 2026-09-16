@@ -261,6 +261,16 @@ export function ProductsWorkspace() {
         if (!row.expiresAt) {
           return <Badge variant="outline">Non renseignee</Badge>;
         }
+        if (row.quantity <= 0) {
+          return (
+            <div className="space-y-0.5">
+              <p className="text-xs tabular-nums">
+                {formatDisplayDate(row.expiresAt)}
+              </p>
+              <Badge variant="outline">Hors stock</Badge>
+            </div>
+          );
+        }
         return (
           <div className="space-y-0.5">
             <p className="text-xs tabular-nums">
@@ -272,8 +282,10 @@ export function ProductsWorkspace() {
               <Badge variant="danger">Critique</Badge>
             ) : status === "soon" ? (
               <Badge variant="warning">Bientot</Badge>
-            ) : (
+            ) : status === "ok" ? (
               <Badge variant="success">OK</Badge>
+            ) : (
+              <Badge variant="outline">—</Badge>
             )}
           </div>
         );
@@ -668,7 +680,8 @@ export function ProductsWorkspace() {
                                 if (
                                   shelf &&
                                   manufacturedAt &&
-                                  (!p.expiresAt || tracking.tracksExpiry)
+                                  tracking.tracksExpiry &&
+                                  !p.expiresAt
                                 ) {
                                   const mfg = parseDateInput(manufacturedAt);
                                   if (mfg) {

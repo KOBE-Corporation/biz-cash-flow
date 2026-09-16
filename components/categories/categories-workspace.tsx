@@ -124,6 +124,14 @@ export function CategoriesWorkspace() {
   };
 
   const handleSave = () => {
+    if (!form.name.trim()) {
+      setError("Le nom est obligatoire");
+      return;
+    }
+    if (!form.baseUnitName.trim()) {
+      setError("L'unite de base est obligatoire");
+      return;
+    }
     const payload = {
       name: form.name,
       description: form.description,

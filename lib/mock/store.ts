@@ -700,14 +700,17 @@ export function getStore(): MockStore {
         expiryCriticalDays: 7,
       };
     } else {
+      const t = category.tracking;
       category.tracking = {
-        tracksManufacturedAt: false,
-        tracksExpiry: false,
-        tracksBatchNumber: false,
-        tracksSerialNumber: false,
-        expiryAlertDays: 30,
-        expiryCriticalDays: 7,
-        ...category.tracking,
+        tracksManufacturedAt: t.tracksManufacturedAt ?? false,
+        tracksExpiry: t.tracksExpiry ?? false,
+        tracksBatchNumber: t.tracksBatchNumber ?? false,
+        tracksSerialNumber: t.tracksSerialNumber ?? false,
+        expiryAlertDays: t.expiryAlertDays ?? 30,
+        expiryCriticalDays: t.expiryCriticalDays ?? 7,
+        defaultShelfLifeDays: t.defaultShelfLifeDays,
+        suggestedNearExpiryDiscountPercent:
+          t.suggestedNearExpiryDiscountPercent,
       };
     }
   }

@@ -107,6 +107,29 @@ function newLine(
   };
 }
 
+function largestPack<T extends { name: string; unitsOfBase: number }>(
+  packs: T[] | undefined,
+) {
+  if (!packs?.length) return null;
+  return packs.slice().sort((a, b) => b.unitsOfBase - a.unitsOfBase)[0] ?? null;
+}
+
+function lineFromProduct(product: {
+  id: string;
+  purchasePrice: number;
+  baseUnitName: string;
+  packLevels: { name: string; unitsOfBase: number }[];
+}): LineDraft {
+  const pack = largestPack(product.packLevels);
+  const units = pack?.unitsOfBase ?? 1;
+  return newLine(
+    product.id,
+    String(product.purchasePrice * units),
+    pack?.name ?? product.baseUnitName,
+    String(units),
+  );
+}
+
 function defaultCategoryPacks(base: string): PackLevelTemplate[] {
   return [{ id: createPackLevelId(), name: base || "unite", unitsOfBase: 1 }];
 }
@@ -228,23 +251,11 @@ export function PurchasesWorkspace() {
 
   const openCreate = useCallback(
     (opts?: { openProductForm?: boolean }) => {
-      const firstProduct = products[0];
       setEditingId(null);
       setSupplierId("");
       setNotes("");
-      setLines([
-        firstProduct
-          ? newLine(
-              firstProduct.id,
-              String(
-                firstProduct.purchasePrice *
-                  (firstProduct.packLevels.at(-1)?.unitsOfBase ?? 1),
-              ),
-              firstProduct.packLevels.at(-1)?.name ?? firstProduct.baseUnitName,
-              String(firstProduct.packLevels.at(-1)?.unitsOfBase ?? 1),
-            )
-          : newLine("", "0"),
-      ]);
+      // Ligne vide : l'utilisateur choisit ou cree le produit (evite un prefill surprise).
+      setLines([newLine("", "0")]);
       setError(null);
       setFormOpen(true);
       if (opts?.openProductForm) {
@@ -252,7 +263,7 @@ export function PurchasesWorkspace() {
         setProductFormOpen(true);
       }
     },
-    [products, resetNewProduct],
+    [resetNewProduct],
   );
 
   useEffect(() => {
@@ -386,12 +397,16 @@ export function PurchasesWorkspace() {
     setVersion((v) => v + 1);
     setLines((prev) => {
       const emptyIndex = prev.findIndex((line) => !line.productId);
-      const draft = newLine(
-        product.id,
-        String(packPrice),
-        newProduct.purchasePackName || product.baseUnitName,
-        String(units),
-      );
+      const draft = {
+        ...lineFromProduct(product),
+        unitPrice: String(packPrice),
+        purchasePackName: newProduct.purchasePackName || product.baseUnitName,
+        unitsPerPurchasePack: String(units),
+        manufacturedAt: "",
+        expiresAt: "",
+        batchNumber: "",
+        serialNumber: "",
+      };
       if (emptyIndex >= 0) {
         return prev.map((line, index) =>
           index === emptyIndex ? { ...draft, key: line.key } : line,
@@ -432,6 +447,10 @@ export function PurchasesWorkspace() {
       }
       if (tracking.tracksBatchNumber && !line.batchNumber.trim()) {
         setError(`Numero de lot requis pour « ${product.name} ».`);
+        return;
+      }
+      if (tracking.tracksSerialNumber && !line.serialNumber.trim()) {
+        setError(`Numero de serie requis pour « ${product.name} ».`);
         return;
       }
     }
@@ -686,14 +705,7 @@ export function PurchasesWorkspace() {
                 onClick={() =>
                   setLines((prev) => [
                     ...prev,
-                    products[0]
-                      ? newLine(
-                          products[0].id,
-                          String(products[0].purchasePrice),
-                          products[0].baseUnitName,
-                          "1",
-                        )
-                      : newLine("", "0"),
+                    products[0] ? lineFromProduct(products[0]) : newLine("", "0"),
                   ])
                 }
               >
@@ -715,49 +727,31 @@ export function PurchasesWorkspace() {
                     value={line.productId}
                     placeholder="Nom, SKU ou code-barres…"
                     onChange={(productId, next) => {
-                      const pack = next?.packLevels.at(-1);
-                      const category = next
-                        ? categories.find((c) => c.id === next.categoryId)
-                        : undefined;
+                      if (!next) {
+                        setLines((prev) =>
+                          prev.map((item, i) =>
+                            i === index
+                              ? {
+                                  ...newLine("", "0"),
+                                  key: item.key,
+                                }
+                              : item,
+                          ),
+                        );
+                        return;
+                      }
+                      const draft = lineFromProduct(next);
                       setLines((prev) =>
                         prev.map((item, i) =>
                           i === index
                             ? {
-                                ...item,
-                                productId,
-                                unitPrice: next
-                                  ? String(
-                                      (next.purchasePrice ?? 0) *
-                                        (pack?.unitsOfBase ?? 1),
-                                    )
-                                  : item.unitPrice,
-                                purchasePackName: next
-                                  ? (pack?.name ?? next.baseUnitName ?? "piece")
-                                  : item.purchasePackName,
-                                unitsPerPurchasePack: next
-                                  ? String(pack?.unitsOfBase ?? 1)
-                                  : item.unitsPerPurchasePack,
-                                manufacturedAt: next
-                                  ? formatDateInput(next.manufacturedAt)
-                                  : "",
-                                expiresAt: next
-                                  ? formatDateInput(next.expiresAt)
-                                  : "",
-                                batchNumber: next?.batchNumber ?? "",
-                                serialNumber: next?.serialNumber ?? "",
-                                ...(category?.tracking?.defaultShelfLifeDays &&
-                                next &&
-                                !next.expiresAt &&
-                                next.manufacturedAt
-                                  ? {
-                                      expiresAt: formatDateInput(
-                                        suggestExpiryFromManufactured(
-                                          next.manufacturedAt,
-                                          category.tracking.defaultShelfLifeDays,
-                                        ),
-                                      ),
-                                    }
-                                  : {}),
+                                ...draft,
+                                key: item.key,
+                                // Nouveau stock = saisie neuve (ne pas reprendre l'ancien lot).
+                                manufacturedAt: "",
+                                expiresAt: "",
+                                batchNumber: "",
+                                serialNumber: "",
                               }
                             : item,
                         ),
@@ -1084,6 +1078,9 @@ export function PurchasesWorkspace() {
                     name: "",
                     baseUnitName: "piece",
                     packLevels: defaultCategoryPacks("piece"),
+                    tracking: normalizeCategoryTracking(
+                      DEFAULT_CATEGORY_TRACKING,
+                    ),
                   });
                   setCategoryError(null);
                   setCategoryInlineOpen(true);
@@ -1369,6 +1366,43 @@ export function PurchasesWorkspace() {
                       }),
                     }))
                   }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Critique (jours)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={inlineTracking.expiryCriticalDays}
+                  onChange={(e) =>
+                    setInlineCategory((p) => ({
+                      ...p,
+                      tracking: normalizeCategoryTracking({
+                        ...normalizeCategoryTracking(p.tracking),
+                        expiryCriticalDays: Number(e.target.value) || 0,
+                      }),
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Duree de vie defaut (jours)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={inlineTracking.defaultShelfLifeDays ?? ""}
+                  onChange={(e) =>
+                    setInlineCategory((p) => ({
+                      ...p,
+                      tracking: normalizeCategoryTracking({
+                        ...normalizeCategoryTracking(p.tracking),
+                        defaultShelfLifeDays: e.target.value
+                          ? Number(e.target.value) || undefined
+                          : undefined,
+                      }),
+                    }))
+                  }
+                  placeholder="Ex. 180"
                 />
               </div>
               <div className="space-y-1">

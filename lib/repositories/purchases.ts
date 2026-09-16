@@ -1,6 +1,10 @@
 import { createId, getStore, touch } from "@/lib/mock/store";
+import {
+  normalizeCategoryTracking,
+} from "@/lib/inventory/expiry";
 import { getActor, recordAudit } from "@/lib/repositories/audit";
 import { postPurchaseCash } from "@/lib/repositories/cash-ledger";
+import { getCategory } from "@/lib/repositories/categories";
 import { createMovement } from "@/lib/repositories/movements";
 import { upsertSupplierOffer } from "@/lib/repositories/offers";
 import { getProduct } from "@/lib/repositories/products";
@@ -9,6 +13,7 @@ import { costPerBaseUnit } from "@/lib/sales/pricing";
 import type {
   Purchase,
   PurchaseItem,
+  PurchaseItem as PurchaseItemType,
   PurchaseStatus,
   RepoResult,
 } from "@/lib/types";
@@ -52,6 +57,62 @@ export function getPurchase(id: string) {
   return getStore().purchases.find((item) => item.id === id) ?? null;
 }
 
+function validateLineTracking(
+  productName: string,
+  categoryId: string,
+  line: PurchaseItemInput,
+): string | null {
+  const tracking = normalizeCategoryTracking(
+    getCategory(categoryId)?.tracking,
+  );
+  if (tracking.tracksExpiry && !line.expiresAt) {
+    return `Date de peremption requise pour « ${productName} »`;
+  }
+  if (tracking.tracksManufacturedAt && !line.manufacturedAt) {
+    return `Date de fabrication requise pour « ${productName} »`;
+  }
+  if (tracking.tracksBatchNumber && !line.batchNumber?.trim()) {
+    return `Numero de lot requis pour « ${productName} »`;
+  }
+  if (tracking.tracksSerialNumber && !line.serialNumber?.trim()) {
+    return `Numero de serie requis pour « ${productName} »`;
+  }
+  return null;
+}
+
+function applyLotToProduct(
+  product: NonNullable<ReturnType<typeof getProduct>>,
+  item: PurchaseItemType,
+  stockBefore: number,
+) {
+  const hasIncomingLot =
+    item.manufacturedAt ||
+    item.expiresAt ||
+    item.batchNumber ||
+    item.serialNumber;
+  if (!hasIncomingLot) return;
+
+  // Nouveau stock (ou premier lot) : prendre le lot de la reception.
+  if (stockBefore <= 0) {
+    if (item.manufacturedAt) product.manufacturedAt = item.manufacturedAt;
+    if (item.expiresAt) product.expiresAt = item.expiresAt;
+    if (item.batchNumber) product.batchNumber = item.batchNumber;
+    if (item.serialNumber) product.serialNumber = item.serialNumber;
+    return;
+  }
+
+  // Stock restant : ne remplacer que si la nouvelle peremption est plus urgente.
+  if (
+    item.expiresAt &&
+    (!product.expiresAt || item.expiresAt.getTime() < product.expiresAt.getTime())
+  ) {
+    product.manufacturedAt = item.manufacturedAt ?? product.manufacturedAt;
+    product.expiresAt = item.expiresAt;
+    product.batchNumber = item.batchNumber ?? product.batchNumber;
+    product.serialNumber = item.serialNumber ?? product.serialNumber;
+  }
+}
+
 function buildItems(
   purchaseId: string,
   inputItems: PurchaseItemInput[],
@@ -61,6 +122,9 @@ function buildItems(
     const product = getProduct(line.productId);
     if (!product) return { ok: false, error: "Produit introuvable" };
     if (line.quantity <= 0) return { ok: false, error: "Quantite invalide" };
+
+    const trackingError = validateLineTracking(product.name, product.categoryId, line);
+    if (trackingError) return { ok: false, error: trackingError };
 
     const unitsPerPurchasePack = Math.max(
       1,
@@ -199,6 +263,11 @@ export function setPurchaseStatus(
       return { ok: false, error: "Cet achat ne peut pas etre recu" };
     }
     for (const item of current.items) {
+      const product = getProduct(item.productId);
+      if (!product) {
+        return { ok: false, error: `Produit introuvable : ${item.productName}` };
+      }
+      const stockBefore = product.quantity;
       const baseQty = item.quantity * item.unitsPerPurchasePack;
       const cost = costPerBaseUnit(item.unitPrice, item.unitsPerPurchasePack);
       const movement = createMovement({
@@ -211,16 +280,13 @@ export function setPurchaseStatus(
       });
       if (!movement.ok) return movement;
 
-      const product = getProduct(item.productId);
-      if (product) {
-        product.purchasePrice = cost;
-        if (item.manufacturedAt) product.manufacturedAt = item.manufacturedAt;
-        if (item.expiresAt) product.expiresAt = item.expiresAt;
-        if (item.batchNumber) product.batchNumber = item.batchNumber;
-        if (item.serialNumber) product.serialNumber = item.serialNumber;
-        product.updatedById = actor.id;
-        product.updatedByName = actor.name;
-        product.updatedAt = touch();
+      const updatedProduct = getProduct(item.productId);
+      if (updatedProduct) {
+        updatedProduct.purchasePrice = cost;
+        applyLotToProduct(updatedProduct, item, stockBefore);
+        updatedProduct.updatedById = actor.id;
+        updatedProduct.updatedByName = actor.name;
+        updatedProduct.updatedAt = touch();
       }
 
       if (current.supplierId && current.supplierName) {

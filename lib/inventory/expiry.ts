@@ -79,7 +79,7 @@ export function getExpiryStatus(
   now = new Date(),
 ): ExpiryStatus {
   const tracking = normalizeCategoryTracking(category?.tracking);
-  if (!tracking.tracksExpiry || !product.expiresAt || product.quantity <= 0) {
+  if (!tracking.tracksExpiry || !product.expiresAt) {
     return "none";
   }
   const days = daysUntilExpiry(product.expiresAt, now);
@@ -87,6 +87,16 @@ export function getExpiryStatus(
   if (days <= tracking.expiryCriticalDays) return "critical";
   if (days <= tracking.expiryAlertDays) return "soon";
   return "ok";
+}
+
+/** Statut pour alertes operationnelles (ignore les produits sans stock). */
+export function getExpiryAlertStatus(
+  product: Product,
+  category: Category | null | undefined,
+  now = new Date(),
+): ExpiryStatus {
+  if (product.quantity <= 0) return "none";
+  return getExpiryStatus(product, category, now);
 }
 
 export function suggestedDiscountForProduct(
@@ -127,6 +137,7 @@ export function buildExpiryAlerts(
     if (status !== "soon" && status !== "critical" && status !== "expired") {
       continue;
     }
+    if (product.quantity <= 0) continue;
     rows.push({
       product,
       category,
