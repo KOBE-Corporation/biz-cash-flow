@@ -3,8 +3,9 @@
 import { Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import type { CartLine } from "@/lib/types";
 import { getCartItemCount, getLineTotal } from "@/lib/sales/cart";
+import { getTodayFlagshipProductIds } from "@/lib/repositories/insights";
 import { Button } from "@/components/ui/button";
-import { Chip } from "@/components/ui/badge";
+import { Badge, Chip } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn, formatCurrency } from "@/lib/utils";
 
@@ -29,6 +30,7 @@ export function CartPanel({
 }: CartPanelProps) {
   const itemCount = getCartItemCount(lines);
   const isEmpty = lines.length === 0;
+  const flagshipIds = new Set(getTodayFlagshipProductIds(3));
 
   return (
     <section className="flex h-full min-h-[240px] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-card md:min-h-0">
@@ -78,6 +80,11 @@ export function CartPanel({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-semibold text-foreground">
                       {line.name}
+                      {flagshipIds.has(line.productId) ? (
+                        <Badge variant="success" className="ml-1 align-middle text-[10px]">
+                          Phare
+                        </Badge>
+                      ) : null}
                     </p>
                     <p className="truncate text-[10px] text-muted-foreground">
                       {line.sku}

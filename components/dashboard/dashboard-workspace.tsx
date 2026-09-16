@@ -11,6 +11,7 @@ import {
   ShoppingCart,
   Wallet,
 } from "lucide-react";
+import { InsightsHighlights } from "@/components/shared/insights-highlights";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -27,6 +28,7 @@ import {
   getRecentInvoices,
   getRecentMovements,
 } from "@/lib/mock/dashboard";
+import { getDashboardHighlights } from "@/lib/repositories/insights";
 import { statusLabel } from "@/lib/repositories/invoices";
 import { cn, formatCurrency } from "@/lib/utils";
 
@@ -66,12 +68,13 @@ export function DashboardWorkspace() {
   const movements = getRecentMovements(6);
   const invoices = getRecentInvoices(5);
   const lowStock = getLowStockProducts(6);
+  const highlights = getDashboardHighlights();
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Tableau de bord"
-        description="Vue d'ensemble : caisse du jour, stock, factures et alertes."
+        description="Vue d'ensemble : produits phares, vendeurs, caisse, stock et alertes."
         actions={
           <>
             <Link
@@ -97,6 +100,12 @@ export function DashboardWorkspace() {
             </Link>
           </>
         }
+      />
+
+      <InsightsHighlights
+        insights={highlights.day}
+        title="Highlights du jour"
+        compact
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -159,6 +168,13 @@ export function DashboardWorkspace() {
           />
         </Link>
       </div>
+
+      <InsightsHighlights
+        insights={highlights.week}
+        title="Tendance de la semaine"
+        showStock={false}
+        compact
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard

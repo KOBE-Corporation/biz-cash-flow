@@ -11,6 +11,7 @@ import {
   getStockStatus,
 } from "@/lib/sales/cart";
 import type { CartLine } from "@/lib/types";
+import { getTodayFlagshipProductIds } from "@/lib/repositories/insights";
 import { StockMeter } from "@/components/sales/stock-meter";
 import { Badge } from "@/components/ui/badge";
 import { Chip } from "@/components/ui/badge";
@@ -56,6 +57,7 @@ export const ProductPicker = forwardRef<HTMLInputElement, ProductPickerProps>(
     ref,
   ) {
     const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+    const flagshipIds = new Set(getTodayFlagshipProductIds(3));
 
     useEffect(() => {
       const node = itemRefs.current[highlightedIndex];
@@ -150,6 +152,7 @@ export const ProductPicker = forwardRef<HTMLInputElement, ProductPickerProps>(
               const outOfStock = available <= 0;
               const highlighted = index === highlightedIndex;
               const flashing = flashProductId === product.id;
+              const isFlagship = flagshipIds.has(product.id);
 
               return (
                 <button
@@ -167,7 +170,9 @@ export const ProductPicker = forwardRef<HTMLInputElement, ProductPickerProps>(
                       ? "cursor-not-allowed border-transparent bg-surface-2/50 opacity-50"
                       : highlighted
                         ? "border-primary/50 bg-primary/10"
-                        : "border-transparent bg-surface-2 hover:bg-surface-active",
+                        : isFlagship
+                          ? "border-success/40 bg-success/5 hover:bg-success/10"
+                          : "border-transparent bg-surface-2 hover:bg-surface-active",
                     flashing && "ring-2 ring-primary/60",
                   )}
                 >
@@ -178,6 +183,11 @@ export const ProductPicker = forwardRef<HTMLInputElement, ProductPickerProps>(
                       </p>
                       <p className="text-xs text-muted-foreground">{product.sku}</p>
                       <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                        {isFlagship ? (
+                          <Badge variant="success" className="px-2.5 py-1 text-xs">
+                            Phare
+                          </Badge>
+                        ) : null}
                         {status === "out" ? (
                           <Badge variant="danger" className="px-2.5 py-1 text-xs">
                             Rupture

@@ -6,6 +6,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { DataTable, type DataColumn } from "@/components/crud/data-table";
 import { FormDialog } from "@/components/crud/form-dialog";
 import { CrudToolbar } from "@/components/crud/toolbar";
+import { InsightsHighlights } from "@/components/shared/insights-highlights";
 import { Badge, Chip } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ import {
   suggestExpiryFromManufactured,
 } from "@/lib/inventory/expiry";
 import { listCategories } from "@/lib/repositories/categories";
+import { getPeriodInsights } from "@/lib/repositories/insights";
 import { listOffersForProduct } from "@/lib/repositories/offers";
 import {
   listProducts,
@@ -113,6 +115,16 @@ export function ProductsWorkspace() {
     void version;
     return listProducts();
   }, [version]);
+
+  const dayInsights = useMemo(() => {
+    void version;
+    return getPeriodInsights("day");
+  }, [version]);
+
+  const flagshipIds = useMemo(
+    () => new Set(dayInsights.flagshipProductIds),
+    [dayInsights],
+  );
 
   const categoryName = useCallback(
     (id: string) => categories.find((c) => c.id === id)?.name ?? "—",
@@ -248,7 +260,14 @@ export function ProductsWorkspace() {
       header: "Produit",
       cell: (row) => (
         <div className="min-w-0">
-          <p className="truncate font-medium">{row.name}</p>
+          <p className="truncate font-medium">
+            {row.name}
+            {flagshipIds.has(row.id) ? (
+              <Badge variant="success" className="ml-1.5 align-middle">
+                Phare
+              </Badge>
+            ) : null}
+          </p>
           <p className="truncate text-xs text-muted-foreground">
             {row.sku} · {row.barcode}
           </p>
@@ -426,6 +445,12 @@ export function ProductsWorkspace() {
           onClick={() => applyStockFilter("expiring")}
         />
       </div>
+
+      <InsightsHighlights
+        insights={dayInsights}
+        title="Highlights stock & ventes"
+        compact
+      />
 
       <CrudToolbar
         search={list.search}

@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { Mail, MessageCircle, Printer } from "lucide-react";
+import { InsightsHighlights } from "@/components/shared/insights-highlights";
 import { DataTable, type DataColumn } from "@/components/crud/data-table";
 import { FormDialog } from "@/components/crud/form-dialog";
 import { CrudToolbar } from "@/components/crud/toolbar";
@@ -34,6 +35,10 @@ import {
   statusLabel,
   updateInvoiceNotes,
 } from "@/lib/repositories/invoices";
+import {
+  getPeriodInsights,
+  getTodayFlagshipProductIds,
+} from "@/lib/repositories/insights";
 import type { Invoice, InvoiceStatus, PaymentMethod } from "@/lib/types";
 import { cn, formatCurrency } from "@/lib/utils";
 
@@ -115,6 +120,20 @@ export function InvoicesWorkspace() {
     if (!selected) return [];
     return listCreditNotes(selected.id);
   }, [version, selected]);
+
+  const flagshipIds = useMemo(() => {
+    void version;
+    return new Set(getTodayFlagshipProductIds(3));
+  }, [version]);
+
+  const dayInsights = useMemo(() => {
+    void version;
+    return getPeriodInsights("day", new Date(), {
+      top: 5,
+      bottom: 3,
+      sellers: 3,
+    });
+  }, [version]);
 
   const todayPaid = useMemo(() => {
     const today = new Date();
@@ -410,6 +429,13 @@ export function InvoicesWorkspace() {
             Nouvelle vente
           </Link>
         }
+      />
+
+      <InsightsHighlights
+        insights={dayInsights}
+        title="Highlights du jour"
+        compact
+        showStock={false}
       />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -714,6 +740,11 @@ export function InvoicesWorkspace() {
                   <div className="min-w-0">
                     <p className="truncate font-sans text-[13px] font-medium">
                       {item.productName}
+                      {item.productId && flagshipIds.has(item.productId) ? (
+                        <Badge variant="success" className="ml-1.5 align-middle">
+                          Phare
+                        </Badge>
+                      ) : null}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
                       {item.productSku}

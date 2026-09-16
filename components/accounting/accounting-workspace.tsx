@@ -6,21 +6,27 @@ import {
   AlertTriangle,
   ArrowDownLeft,
   ArrowUpRight,
+  Download,
   Printer,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
+import { InsightsHighlights } from "@/components/shared/insights-highlights";
+import { CashSessionBar } from "@/components/accounting/cash-session-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader, StatCard } from "@/components/ui/page-header";
-import { CashSessionBar } from "@/components/accounting/cash-session-bar";
 import { useBcfRefresh } from "@/hooks/use-bcf-refresh";
-import { downloadDailyReportPdf } from "@/lib/accounting/daily-report";
+import { downloadPeriodReportPdf } from "@/lib/accounting/period-report";
 import { paymentMethodLabels } from "@/lib/sales/cart";
 import { getDailyAccounting } from "@/lib/repositories/accounting";
+import {
+  getPeriodInsights,
+  type PeriodInsights,
+} from "@/lib/repositories/insights";
+import type { PeriodKey } from "@/lib/repositories/cash-sessions";
 import { formatCurrency } from "@/lib/utils";
 
-/** Format HH:mm local, sans toLocale* (évite décalages SSR/client). */
 function formatTime(date: Date) {
   const hours = String(date.getHours()).padStart(2, "0");
   const minutes = String(date.getMinutes()).padStart(2, "0");
@@ -54,6 +60,14 @@ function formatDayLabel(date: Date) {
   return `${weekdays[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
 }
 
+const PDF_PERIODS: { key: PeriodKey; label: string }[] = [
+  { key: "day", label: "Journalier" },
+  { key: "week", label: "Hebdo" },
+  { key: "month", label: "Mensuel" },
+  { key: "quarter", label: "Trimestriel" },
+  { key: "year", label: "Annuel" },
+];
+
 export function AccountingWorkspace() {
   const { version, mounted, bump } = useBcfRefresh();
 
@@ -63,15 +77,19 @@ export function AccountingWorkspace() {
     return getDailyAccounting(new Date());
   }, [version, mounted]);
 
-  const handlePrint = () => {
-    window.print();
+  const dayInsights = useMemo(() => {
+    if (!mounted) return null;
+    void version;
+    return getPeriodInsights("day");
+  }, [version, mounted]);
+
+  const handlePrint = () => window.print();
+
+  const handlePdf = (period: PeriodKey) => {
+    downloadPeriodReportPdf(period);
   };
 
-  const handlePdf = () => {
-    downloadDailyReportPdf(data!);
-  };
-
-  if (!data) {
+  if (!data || !dayInsights) {
     return (
       <div className="space-y-6">
         <PageHeader
@@ -94,25 +112,44 @@ export function AccountingWorkspace() {
     <div className="space-y-6 print:space-y-4">
       <PageHeader
         title="Comptabilite"
-        description="Caisse du jour (hors fonds monnaie), taux periodiques, rapport PDF."
+        description="Caisse du jour, produits phares, vendeurs et rapports PDF (J/H/M/T/A)."
         actions={
           <div className="flex flex-wrap gap-2 print:hidden">
             <Button variant="outline" onClick={bump}>
               Actualiser
             </Button>
-            <Button variant="outline" onClick={handlePdf}>
-              <Printer className="h-4 w-4" />
-              Rapport PDF
-            </Button>
             <Button variant="success" onClick={handlePrint}>
               <Printer className="h-4 w-4" />
-              Imprimer
+              Imprimer l'ecran
             </Button>
           </div>
         }
       />
 
       <CashSessionBar variant="accounting" onChanged={bump} />
+
+      <section className="space-y-2 print:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-base font-semibold">Telechargement rapports PDF</h2>
+          <p className="text-xs text-muted-foreground">
+            Fichier HTML + boite d&apos;impression → Enregistrer en PDF
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {PDF_PERIODS.map((p) => (
+            <Button
+              key={p.key}
+              variant="outline"
+              size="sm"
+              className="h-9"
+              onClick={() => handlePdf(p.key)}
+            >
+              <Download className="h-4 w-4" />
+              {p.label}
+            </Button>
+          ))}
+        </div>
+      </section>
 
       <p className="text-sm text-muted-foreground print:text-foreground">
         Journee du {formatDayLabel(data.date)}
@@ -124,7 +161,7 @@ export function AccountingWorkspace() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Link
           href="/comptabilite/entrees"
-          className="block rounded-xl outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+          className="block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <StatCard
             title="Entrees metier"
@@ -136,7 +173,7 @@ export function AccountingWorkspace() {
         </Link>
         <Link
           href="/comptabilite/sorties"
-          className="block rounded-xl outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+          className="block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <StatCard
             title="Sorties metier"
@@ -147,7 +184,7 @@ export function AccountingWorkspace() {
           />
         </Link>
         <StatCard
-          title="Net metier du jour"
+          title="Net metier"
           value={formatCurrency(data.netCash)}
           subtitle="Base des taux (float exclu)"
           variant={data.netCash >= 0 ? "success" : "danger"}
@@ -160,60 +197,29 @@ export function AccountingWorkspace() {
         />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 print:hidden">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="CA semaine"
-          value={formatCurrency(data.periods.week.salesTotal)}
-          subtitle={`Moy. ${formatCurrency(data.periods.week.avgDailySales)}/j`}
+          title="CA du jour"
+          value={formatCurrency(data.salesTotal)}
+          subtitle="Encaisse"
+          variant="success"
         />
         <StatCard
-          title="CA mois"
-          value={formatCurrency(data.periods.month.salesTotal)}
-          subtitle={`Moy. ${formatCurrency(data.periods.month.avgDailySales)}/j`}
-        />
-        <StatCard
-          title="CA trimestre"
-          value={formatCurrency(data.periods.quarter.salesTotal)}
-          subtitle={data.periods.quarter.label}
-        />
-        <StatCard
-          title="CA annee"
-          value={formatCurrency(data.periods.year.salesTotal)}
-          subtitle={data.periods.year.label}
-        />
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <StatCard
-          title="Marge / resultat"
+          title="Marge estimee"
           value={formatCurrency(data.estimatedMargin)}
-          subtitle={`Resultat : ${formatCurrency(data.dailyResult)}`}
+          subtitle={`Resultat ${formatCurrency(data.dailyResult)}`}
           variant={data.estimatedMargin >= 0 ? "success" : "danger"}
         />
         <StatCard
-          title="CA ventes"
-          value={formatCurrency(data.salesTotal)}
-          subtitle="Encaisse du jour"
+          title="Achats recus"
+          value={formatCurrency(data.purchasesTotal)}
+          subtitle="Du jour"
         />
-        <Link
-          href="/comptabilite/sorties"
-          className="block rounded-xl outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <StatCard
-            title="Achats recus"
-            value={formatCurrency(data.purchasesTotal)}
-            subtitle="Sorties stock + caisse — cliquer"
-            className="transition-colors hover:bg-surface-active/40"
-          />
-        </Link>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-1">
-        <Link href="/comptabilite/stock" className="block rounded-xl outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring">
+        <Link href="/comptabilite/stock" className="block rounded-xl">
           <StatCard
             title="Alertes stock"
             value={data.lowStockAlerts + data.outOfStockAlerts}
-            subtitle={`${data.outOfStockAlerts} rupture · ${data.lowStockAlerts} faible — cliquer`}
+            subtitle={`${data.outOfStockAlerts} rupture · ${data.lowStockAlerts} faible`}
             variant={
               data.outOfStockAlerts > 0
                 ? "danger"
@@ -226,6 +232,37 @@ export function AccountingWorkspace() {
         </Link>
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 print:hidden">
+        {(
+          [
+            ["week", data.periods.week],
+            ["month", data.periods.month],
+            ["quarter", data.periods.quarter],
+            ["year", data.periods.year],
+          ] as const
+        ).map(([key, period]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => handlePdf(key)}
+            className="text-left"
+            title="Telecharger le PDF"
+          >
+            <StatCard
+              title={`CA ${PDF_PERIODS.find((p) => p.key === key)?.label}`}
+              value={formatCurrency(period.salesTotal)}
+              subtitle={`Moy. ${formatCurrency(period.avgDailySales)}/j · PDF`}
+              className="transition-colors hover:bg-surface-active/40"
+            />
+          </button>
+        ))}
+      </div>
+
+      <InsightsHighlights
+        insights={dayInsights as PeriodInsights}
+        title="Highlights du jour"
+      />
+
       {(data.lowStockAlerts > 0 ||
         data.outOfStockAlerts > 0 ||
         data.expiryAlerts > 0) && (
@@ -235,7 +272,9 @@ export function AccountingWorkspace() {
         >
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
           <div className="min-w-0 flex-1">
-            <p className="font-medium text-foreground">Alertes stock & peremption</p>
+            <p className="font-medium text-foreground">
+              Alertes stock & peremption
+            </p>
             <p className="text-muted-foreground">
               {data.outOfStockAlerts} rupture, {data.lowStockAlerts} seuil bas
               {data.expiryAlerts > 0
@@ -245,19 +284,15 @@ export function AccountingWorkspace() {
             </p>
           </div>
           <span className="shrink-0 self-center text-xs font-medium text-primary group-hover:underline">
-            Voir le stock →
+            Voir →
           </span>
         </Link>
       )}
 
       <section className="space-y-3">
-        <h2 className="text-base font-semibold text-foreground">
-          Ventes par vendeur (jour)
-        </h2>
+        <h2 className="text-base font-semibold">Ventes par caissier</h2>
         {data.salesByUser.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Aucune vente enregistree aujourd&apos;hui.
-          </p>
+          <p className="text-sm text-muted-foreground">Aucune vente aujourd&apos;hui.</p>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-border">
             <table className="w-full text-left text-sm">
@@ -267,13 +302,20 @@ export function AccountingWorkspace() {
                   <th className="px-3 py-2 font-medium">Tickets</th>
                   <th className="px-3 py-2 font-medium">CA</th>
                   <th className="px-3 py-2 font-medium">Encaisse</th>
-                  <th className="px-3 py-2 font-medium">Plage horaire</th>
+                  <th className="px-3 py-2 font-medium">Plage</th>
                 </tr>
               </thead>
               <tbody>
-                {data.salesByUser.map((row) => (
+                {data.salesByUser.map((row, i) => (
                   <tr key={row.userId} className="border-t border-border">
-                    <td className="px-3 py-2 font-medium">{row.userName}</td>
+                    <td className="px-3 py-2 font-medium">
+                      {row.userName}
+                      {i === 0 ? (
+                        <Badge variant="success" className="ml-2">
+                          Top
+                        </Badge>
+                      ) : null}
+                    </td>
                     <td className="px-3 py-2 tabular-nums">{row.salesCount}</td>
                     <td className="px-3 py-2 tabular-nums">
                       {formatCurrency(row.salesTotal)}
@@ -295,13 +337,68 @@ export function AccountingWorkspace() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-base font-semibold text-foreground">
-          Journal de caisse (jour)
-        </h2>
-        {data.ledger.length === 0 ? (
+        <h2 className="text-base font-semibold">Produits du jour (gain)</h2>
+        {data.topProducts.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Aucune vente payee.</p>
+        ) : (
+          <div className="overflow-hidden rounded-2xl border border-border">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-surface-2 text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Produit</th>
+                  <th className="px-3 py-2 font-medium">Qte</th>
+                  <th className="px-3 py-2 font-medium">CA</th>
+                  <th className="px-3 py-2 font-medium">Cout</th>
+                  <th className="px-3 py-2 font-medium">Gain</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.topProducts.map((row, i) => (
+                  <tr key={row.productId} className="border-t border-border">
+                    <td className="px-3 py-2 font-medium">
+                      {row.name}
+                      {i < 3 ? (
+                        <Badge variant="success" className="ml-2">
+                          Phare
+                        </Badge>
+                      ) : null}
+                    </td>
+                    <td className="px-3 py-2 tabular-nums">{row.qtySold}</td>
+                    <td className="px-3 py-2 tabular-nums">
+                      {formatCurrency(row.revenue)}
+                    </td>
+                    <td className="px-3 py-2 tabular-nums text-muted-foreground">
+                      {formatCurrency(row.estimatedCost)}
+                    </td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`inline-flex items-center gap-1 tabular-nums ${
+                          row.estimatedGain >= 0
+                            ? "text-success"
+                            : "text-destructive"
+                        }`}
+                      >
+                        {row.estimatedGain >= 0 ? (
+                          <TrendingUp className="h-3.5 w-3.5" />
+                        ) : (
+                          <TrendingDown className="h-3.5 w-3.5" />
+                        )}
+                        {formatCurrency(row.estimatedGain)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-base font-semibold">Journal de caisse</h2>
+        {data.operationalLedger.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Aucun mouvement d&apos;argent aujourd&apos;hui. Les ventes payees et
-            les achats recus s&apos;y enregistrent automatiquement.
+            Aucun mouvement metier aujourd&apos;hui.
           </p>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-border">
@@ -316,7 +413,7 @@ export function AccountingWorkspace() {
                 </tr>
               </thead>
               <tbody>
-                {data.ledger.map((entry) => (
+                {data.operationalLedger.map((entry) => (
                   <tr key={entry.id} className="border-t border-border">
                     <td className="px-3 py-2 tabular-nums text-muted-foreground">
                       {formatTime(entry.occurredAt)}
@@ -363,68 +460,6 @@ export function AccountingWorkspace() {
           </div>
         )}
       </section>
-
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold text-foreground">
-          Gains par produit (jour)
-        </h2>
-        {data.topProducts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Aucune vente payee aujourd&apos;hui.
-          </p>
-        ) : (
-          <div className="overflow-hidden rounded-2xl border border-border">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-surface-2 text-xs text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Produit</th>
-                  <th className="px-3 py-2 font-medium">Qte</th>
-                  <th className="px-3 py-2 font-medium">CA</th>
-                  <th className="px-3 py-2 font-medium">Cout</th>
-                  <th className="px-3 py-2 font-medium">Gain</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.topProducts.map((row) => (
-                  <tr key={row.productId} className="border-t border-border">
-                    <td className="px-3 py-2 font-medium">{row.name}</td>
-                    <td className="px-3 py-2 tabular-nums">{row.qtySold}</td>
-                    <td className="px-3 py-2 tabular-nums">
-                      {formatCurrency(row.revenue)}
-                    </td>
-                    <td className="px-3 py-2 tabular-nums text-muted-foreground">
-                      {formatCurrency(row.estimatedCost)}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={`inline-flex items-center gap-1 tabular-nums ${
-                          row.estimatedGain >= 0
-                            ? "text-success"
-                            : "text-destructive"
-                        }`}
-                      >
-                        {row.estimatedGain >= 0 ? (
-                          <TrendingUp className="h-3.5 w-3.5" />
-                        ) : (
-                          <TrendingDown className="h-3.5 w-3.5" />
-                        )}
-                        {formatCurrency(row.estimatedGain)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      {/* Comparaison fournisseurs — masquee tant que le module n'est pas finalise */}
-
-      <p className="text-xs text-muted-foreground print:hidden">
-        Chaque ligne de caisse est liee a l&apos;utilisateur courant (stub auth).
-        La gestion multi-users arrivera plus tard.
-      </p>
     </div>
   );
 }

@@ -14,6 +14,8 @@ import {
   resolveDiscountAmount,
 } from "@/lib/sales/cart";
 import { siteConfig } from "@/lib/constants/site";
+import { getTodayFlagshipProductIds } from "@/lib/repositories/insights";
+import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -66,6 +68,7 @@ export function SaleInvoicePreviewDialog({
   const subtotal = getCartSubtotal(lines);
   const discountAmount = resolveDiscountAmount(subtotal, discount, discountMode);
   const total = getCartTotal(lines, discount, discountMode);
+  const flagshipIds = new Set(getTodayFlagshipProductIds(3));
   const isCash = paymentMethod === "CASH";
   const isCredit = paymentMethod === "CREDIT";
   const change = isCash ? getChangeDue(total, amountReceived) : 0;
@@ -174,6 +177,11 @@ export function SaleInvoicePreviewDialog({
                 <div className="min-w-0">
                   <p className="truncate font-sans text-[13px] font-medium">
                     {line.name}
+                    {flagshipIds.has(line.productId) ? (
+                      <Badge variant="success" className="ml-1.5 align-middle">
+                        Phare
+                      </Badge>
+                    ) : null}
                   </p>
                   <p className="truncate text-[11px] text-muted-foreground">
                     {line.sku} · {formatCurrency(line.unitPrice)}
