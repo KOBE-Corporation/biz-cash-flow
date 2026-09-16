@@ -33,7 +33,10 @@ export function Dialog({
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
+  const onOpenChangeRef = useRef(onOpenChange);
   const mounted = typeof document !== "undefined";
+
+  onOpenChangeRef.current = onOpenChange;
 
   useEffect(() => {
     if (!open) return;
@@ -42,17 +45,19 @@ export function Dialog({
     document.body.style.overflow = "hidden";
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onOpenChange(false);
+      if (event.key === "Escape") onOpenChangeRef.current(false);
     };
 
     window.addEventListener("keydown", onKeyDown);
+    // Focus initial uniquement a l'ouverture — pas a chaque re-render parent
+    // (sinon les inputs perdent le curseur apres chaque caractere).
     dialogRef.current?.focus();
 
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [open, onOpenChange]);
+  }, [open]);
 
   if (!open || !mounted) return null;
 
