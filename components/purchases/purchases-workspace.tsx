@@ -41,6 +41,7 @@ import {
 } from "@/lib/inventory/expiry";
 import {
   createPurchase,
+  getPurchase,
   listPurchases,
   setPurchaseStatus,
   updatePurchase,
@@ -61,7 +62,7 @@ import type {
   Purchase,
   PurchaseStatus,
 } from "@/lib/types";
-import { formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 type LineDraft = {
   key: string;
@@ -150,8 +151,9 @@ export function PurchasesWorkspace() {
   const searchParams = useSearchParams();
   const { confirm, dialog } = useConfirmDialog();
   const { toast, showToast } = useToast();
-  const [version, setVersion] = useState(0);
+  const { version, bump } = useBcfRefresh();
   const [statusFilter, setStatusFilter] = useState<PurchaseStatus | "all">("all");
+  const [supplierFilter, setSupplierFilter] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [productFormOpen, setProductFormOpen] = useState(false);
   const [categoryInlineOpen, setCategoryInlineOpen] = useState(false);
@@ -219,20 +221,48 @@ export function PurchasesWorkspace() {
   const potentialGainUnit = unitSale - suggestedCost;
   const potentialGainPack = packSale - packCost;
 
+  const stats = useMemo(() => {
+    const pending = items.filter((p) => p.status === "PENDING");
+    const received = items.filter((p) => p.status === "RECEIVED");
+    const cancelled = items.filter((p) => p.status === "CANCELLED");
+    const sum = (rows: Purchase[]) =>
+      rows.reduce((s, p) => s + p.totalAmount, 0);
+    return {
+      total: items.length,
+      pendingCount: pending.length,
+      receivedCount: received.length,
+      cancelledCount: cancelled.length,
+      pendingAmount: sum(pending),
+      receivedAmount: sum(received),
+      cancelledAmount: sum(cancelled),
+      totalAmount: sum(items),
+    };
+  }, [items]);
+
   const filterFn = useCallback(
     (item: Purchase, query: string) => {
       if (statusFilter !== "all" && item.status !== statusFilter) return false;
+      if (supplierFilter && item.supplierId !== supplierFilter) return false;
       const q = query.trim().toLowerCase();
       if (!q) return true;
       return (
         item.reference.toLowerCase().includes(q) ||
-        (item.supplierName?.toLowerCase().includes(q) ?? false)
+        (item.supplierName?.toLowerCase().includes(q) ?? false) ||
+        item.items.some(
+          (line) =>
+            line.productName.toLowerCase().includes(q) ||
+            line.productSku.toLowerCase().includes(q),
+        )
       );
     },
-    [statusFilter],
+    [statusFilter, supplierFilter],
   );
 
   const list = useEntityList(items, filterFn);
+
+  const setStatusFromCard = (value: PurchaseStatus | "all") => {
+    setStatusFilter((prev) => (prev === value ? "all" : value));
+  };
 
   const resetNewProduct = useCallback(
     (categoryId?: string) => {
@@ -287,7 +317,57 @@ export function PurchasesWorkspace() {
     const nouveau = searchParams.get("nouveau") === "1";
     const supplierFromUrl = searchParams.get("supplierId");
     const productFromUrl = searchParams.get("productId");
-    if (!nouveau && !supplierFromUrl) return;
+    const statusFromUrl = searchParams.get("status") as PurchaseStatus | null;
+    const idFromUrl = searchParams.get("id");
+
+    let touched = false;
+
+    if (
+      statusFromUrl &&
+      (statusFromUrl === "PENDING" ||
+        statusFromUrl === "RECEIVED" ||
+        statusFromUrl === "CANCELLED")
+    ) {
+      setStatusFilter(statusFromUrl);
+      touched = true;
+    }
+
+    if (supplierFromUrl && !nouveau) {
+      setSupplierFilter(supplierFromUrl);
+      const supplier = listSuppliers().find((s) => s.id === supplierFromUrl);
+      if (supplier) list.setSearch(supplier.name);
+      touched = true;
+    }
+
+    if (idFromUrl) {
+      const purchase = getPurchase(idFromUrl);
+      if (purchase) {
+        if (purchase.status === "PENDING") {
+          setEditingId(purchase.id);
+          setSupplierId(purchase.supplierId ?? "");
+          setNotes(purchase.notes ?? "");
+          setLines(
+            purchase.items.map((item) => ({
+              key: item.id,
+              productId: item.productId,
+              quantity: String(item.quantity),
+              unitPrice: String(item.unitPrice),
+              purchasePackName: item.purchasePackName,
+              unitsPerPurchasePack: String(item.unitsPerPurchasePack),
+              manufacturedAt: formatDateInput(item.manufacturedAt),
+              expiresAt: formatDateInput(item.expiresAt),
+              batchNumber: item.batchNumber ?? "",
+              serialNumber: item.serialNumber ?? "",
+            })),
+          );
+          setError(null);
+          setFormOpen(true);
+        } else {
+          setDetail(purchase);
+        }
+      }
+      touched = true;
+    }
 
     if (nouveau) {
       openCreate({
@@ -295,13 +375,10 @@ export function PurchasesWorkspace() {
         supplierId: supplierFromUrl ?? undefined,
         productId: productFromUrl ?? undefined,
       });
-      router.replace("/achats", { scroll: false });
-      return;
+      touched = true;
     }
 
-    if (supplierFromUrl) {
-      const supplier = listSuppliers().find((s) => s.id === supplierFromUrl);
-      if (supplier) list.setSearch(supplier.name);
+    if (touched) {
       router.replace("/achats", { scroll: false });
     }
     // Intentionnel : ne reagir qu'a l'URL d'entree
@@ -347,7 +424,7 @@ export function PurchasesWorkspace() {
       showToast(result.error, "error");
       return;
     }
-    setVersion((v) => v + 1);
+    bump();
     setNewProduct((p) => ({ ...p, categoryId: result.data.id }));
     setCategoryInlineOpen(false);
     setCategoryError(null);
@@ -430,7 +507,7 @@ export function PurchasesWorkspace() {
     }
 
     const product = result.data;
-    setVersion((v) => v + 1);
+    bump();
     setLines((prev) => {
       const emptyIndex = prev.findIndex((line) => !line.productId);
       const draft = {
@@ -515,7 +592,7 @@ export function PurchasesWorkspace() {
       return;
     }
     setFormOpen(false);
-    setVersion((v) => v + 1);
+    bump();
     showToast(editingId ? "Achat mis a jour" : "Achat enregistre", "success");
   };
 
@@ -534,7 +611,11 @@ export function PurchasesWorkspace() {
       return;
     }
     setDetail(null);
-    setVersion((v) => v + 1);
+    bump();
+    dispatchBcfEvent(BCF_EVENTS.STOCK_CHANGED, {
+      purchaseId: purchase.id,
+      source: "purchase-receive",
+    });
     showToast("Achat recu — stock mis a jour", "success");
   };
 
@@ -552,11 +633,20 @@ export function PurchasesWorkspace() {
       return;
     }
     setDetail(null);
-    setVersion((v) => v + 1);
+    bump();
     showToast("Achat annule", "success");
   };
 
   const columns: DataColumn<Purchase>[] = [
+    {
+      key: "date",
+      header: "Date",
+      cell: (row) => (
+        <span className="text-xs tabular-nums text-muted-foreground">
+          {row.purchasedAt.toLocaleDateString("fr-FR")}
+        </span>
+      ),
+    },
     {
       key: "ref",
       header: "Reference",
@@ -568,6 +658,16 @@ export function PurchasesWorkspace() {
       key: "supplier",
       header: "Fournisseur",
       cell: (row) => row.supplierName || "—",
+    },
+    {
+      key: "lines",
+      header: "Lignes",
+      hideOnMobile: true,
+      cell: (row) => (
+        <span className="text-xs text-muted-foreground">
+          {row.items.length} produit{row.items.length > 1 ? "s" : ""}
+        </span>
+      ),
     },
     {
       key: "total",
@@ -641,24 +741,66 @@ export function PurchasesWorkspace() {
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <StatCard title="Achats" value={items.length} />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          title="Achats"
+          value={stats.total}
+          subtitle={formatCurrency(stats.totalAmount)}
+          active={statusFilter === "all"}
+          onClick={() => setStatusFromCard("all")}
+          icon={<ShoppingCart className="h-5 w-5" />}
+        />
         <StatCard
           title="En attente"
-          value={items.filter((p) => p.status === "PENDING").length}
+          value={stats.pendingCount}
+          subtitle={formatCurrency(stats.pendingAmount)}
           variant="warning"
+          active={statusFilter === "PENDING"}
+          onClick={() => setStatusFromCard("PENDING")}
         />
         <StatCard
           title="Recus"
-          value={items.filter((p) => p.status === "RECEIVED").length}
+          value={stats.receivedCount}
+          subtitle={formatCurrency(stats.receivedAmount)}
           variant="success"
+          active={statusFilter === "RECEIVED"}
+          onClick={() => setStatusFromCard("RECEIVED")}
+          icon={<PackageCheck className="h-5 w-5" />}
+        />
+        <StatCard
+          title="Annules"
+          value={stats.cancelledCount}
+          subtitle={formatCurrency(stats.cancelledAmount)}
+          variant="danger"
+          active={statusFilter === "CANCELLED"}
+          onClick={() => setStatusFromCard("CANCELLED")}
         />
       </div>
+
+      {stats.pendingCount > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warning/30 bg-warning/5 px-4 py-3 text-sm">
+          <p>
+            <span className="font-medium">{stats.pendingCount}</span> achat
+            {stats.pendingCount > 1 ? "s" : ""} en attente ·{" "}
+            <span className="tabular-nums font-medium">
+              {formatCurrency(stats.pendingAmount)}
+            </span>{" "}
+            a receptionner
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setStatusFilter("PENDING")}
+          >
+            Voir les attentes
+          </Button>
+        </div>
+      ) : null}
 
       <CrudToolbar
         search={list.search}
         onSearchChange={list.setSearch}
-        searchPlaceholder="Reference ou fournisseur…"
+        searchPlaceholder="Reference, fournisseur ou produit…"
         filters={
           <>
             {(["all", "PENDING", "RECEIVED", "CANCELLED"] as const).map(
@@ -673,6 +815,27 @@ export function PurchasesWorkspace() {
                 </Chip>
               ),
             )}
+            <select
+              value={supplierFilter}
+              onChange={(e) => setSupplierFilter(e.target.value)}
+              className="h-8 rounded-full border border-border bg-input px-3 text-xs"
+            >
+              <option value="">Tous fournisseurs</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+            {supplierFilter ? (
+              <Chip
+                active
+                onClick={() => setSupplierFilter("")}
+                className="px-2.5 py-1 text-xs"
+              >
+                Filtre fournisseur ×
+              </Chip>
+            ) : null}
           </>
         }
       />
@@ -1533,17 +1696,34 @@ export function PurchasesWorkspace() {
       >
         {detail ? (
           <div className="space-y-3 text-sm">
-            <Badge
-              variant={
-                detail.status === "RECEIVED"
-                  ? "success"
-                  : detail.status === "CANCELLED"
-                    ? "danger"
-                    : "warning"
-              }
-            >
-              {statusLabels[detail.status]}
-            </Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge
+                variant={
+                  detail.status === "RECEIVED"
+                    ? "success"
+                    : detail.status === "CANCELLED"
+                      ? "danger"
+                      : "warning"
+                }
+              >
+                {statusLabels[detail.status]}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                {detail.purchasedAt.toLocaleDateString("fr-FR")} ·{" "}
+                {detail.createdByName}
+              </span>
+            </div>
+            {detail.supplierId ? (
+              <Link
+                href={`/fournisseurs?id=${encodeURIComponent(detail.supplierId)}`}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "w-fit",
+                )}
+              >
+                {detail.supplierName || "Fournisseur"}
+              </Link>
+            ) : null}
             <div className="space-y-2">
               {detail.items.map((item) => (
                 <div
@@ -1564,6 +1744,11 @@ export function PurchasesWorkspace() {
                 </div>
               ))}
             </div>
+            {detail.notes ? (
+              <p className="rounded-xl bg-surface-2 px-3 py-2 text-xs text-muted-foreground">
+                {detail.notes}
+              </p>
+            ) : null}
             <div className="flex justify-between font-semibold">
               <span>Total</span>
               <span className="tabular-nums">

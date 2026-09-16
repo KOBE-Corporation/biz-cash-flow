@@ -27,6 +27,7 @@ import { listCategories } from "@/lib/repositories/categories";
 import { getPeriodInsights } from "@/lib/repositories/insights";
 import { listOffersForProduct } from "@/lib/repositories/offers";
 import {
+  getProduct,
   listProducts,
   removeProduct,
   updateProduct,
@@ -208,6 +209,19 @@ export function ProductsWorkspace() {
     setError(null);
     list.openEdit(item);
   };
+
+  useEffect(() => {
+    const id = searchParams.get("id");
+    if (!id) return;
+    const product = getProduct(id);
+    if (!product) return;
+    openEdit(product);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("id");
+    const qs = params.toString();
+    router.replace(qs ? `/produits?${qs}` : "/produits", { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const handleSave = () => {
     if (!list.editing || !form) return;

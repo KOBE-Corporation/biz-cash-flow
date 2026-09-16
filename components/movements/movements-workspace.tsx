@@ -29,7 +29,7 @@ import {
   listMovements,
 } from "@/lib/repositories/movements";
 import { listProducts } from "@/lib/repositories/products";
-import type { MovementType, Product, StockMovement } from "@/lib/types";
+import type { MovementType, StockMovement } from "@/lib/types";
 import { cn, formatCurrency } from "@/lib/utils";
 
 const typeLabels: Record<MovementType, string> = {

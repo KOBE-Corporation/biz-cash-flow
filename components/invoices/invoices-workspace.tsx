@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, MessageCircle, Printer } from "lucide-react";
 import { InsightsHighlights } from "@/components/shared/insights-highlights";
 import { DataTable, type DataColumn } from "@/components/crud/data-table";
@@ -25,6 +26,7 @@ import {
   cancelInvoice,
   countInvoicesByStatus,
   createCreditNote,
+  getInvoice,
   getInvoiceBalance,
   isInvoiceOpen,
   listCreditNotes,
@@ -83,6 +85,8 @@ function toInputDate(d: Date) {
 }
 
 export function InvoicesWorkspace() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { dialog } = useConfirmDialog();
   const { toast, showToast } = useToast();
   const { version, bump } = useBcfRefresh();
@@ -99,6 +103,17 @@ export function InvoicesWorkspace() {
   const [creditAmount, setCreditAmount] = useState("");
   const [creditReason, setCreditReason] = useState("");
   const [creditOpen, setCreditOpen] = useState(false);
+
+  useEffect(() => {
+    const id = searchParams.get("id");
+    if (!id) return;
+    const invoice = getInvoice(id);
+    if (!invoice) return;
+    setSelected(invoice);
+    setNotes(invoice.notes ?? "");
+    router.replace("/factures", { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const items = useMemo(() => {
     void version;

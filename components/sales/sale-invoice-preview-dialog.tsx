@@ -5,6 +5,7 @@ import { Printer } from "lucide-react";
 import type { CartLine, PaymentMethod } from "@/lib/types";
 import type { DiscountMode } from "@/lib/sales/cart";
 import {
+  cartLineKey,
   getCartItemCount,
   getCartSubtotal,
   getCartTotal,
@@ -190,7 +191,7 @@ export function SaleInvoicePreviewDialog({
             </div>
             {lines.map((line) => (
               <div
-                key={line.productId}
+                key={cartLineKey(line)}
                 className="grid grid-cols-[1fr_auto_auto] items-start gap-x-2"
               >
                 <div className="min-w-0">
