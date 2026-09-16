@@ -1,9 +1,15 @@
 import { getStore } from "@/lib/mock/store";
+import { sumOperationalCash } from "@/lib/cash/pnl";
 import { listCashLedgerForDay } from "@/lib/repositories/cash-ledger";
+import {
+  getCashSessionForDate,
+  getExpectedDrawerBalance,
+  getPeriodStats,
+} from "@/lib/repositories/cash-sessions";
 import { countExpiryAlerts } from "@/lib/repositories/expiry-alerts";
 import { listOffersForProduct } from "@/lib/repositories/offers";
 import { listProducts } from "@/lib/repositories/products";
-import type { CashLedgerEntry } from "@/lib/types";
+import type { CashLedgerEntry, CashSession } from "@/lib/types";
 
 function startOfDay(date = new Date()) {
   const d = new Date(date);
@@ -21,26 +27,29 @@ function isSameDay(a: Date, b: Date) {
 
 export type DailyAccounting = {
   date: Date;
-  /** Entrees d'argent du jour (journal de caisse). */
+  /** Encaissements metier (hors float). */
   cashIn: number;
-  /** Sorties d'argent du jour (journal de caisse). */
+  /** Decaissements metier (hors float). */
   cashOut: number;
-  /** Solde caisse du jour = cashIn − cashOut. */
+  /** Net metier = cashIn − cashOut (base des taux). */
   netCash: number;
+  /** Fonds d'ouverture (monnaie) — hors CA. */
+  openingFloat: number;
+  /** Solde theorique du tiroir (float + net metier). */
+  expectedDrawer: number;
+  session: CashSession | null;
   salesTotal: number;
   salesCount: number;
   purchasesTotal: number;
   purchasesCount: number;
-  /** Marge estimee sur ventes (CA − cout revient des articles vendus). */
   estimatedMargin: number;
-  /** Resultat journalier simplifie : marge − (achats caisse hors deja dans marge). */
   dailyResult: number;
   lowStockAlerts: number;
   outOfStockAlerts: number;
-  /** Produits perimes / critiques / bientot (selon categorie). */
   expiryAlerts: number;
   ledger: CashLedgerEntry[];
-  /** Resume des ventes / encaissements par vendeur pour la journee. */
+  /** Ledger filtre : seulement operationnel (pour rapports CA). */
+  operationalLedger: CashLedgerEntry[];
   salesByUser: Array<{
     userId: string;
     userName: string;
@@ -71,28 +80,42 @@ export type DailyAccounting = {
     worstCost: number;
     potentialSavingPerBase: number;
   }>;
+  periods: {
+    week: ReturnType<typeof getPeriodStats>;
+    month: ReturnType<typeof getPeriodStats>;
+    quarter: ReturnType<typeof getPeriodStats>;
+    year: ReturnType<typeof getPeriodStats>;
+  };
 };
 
 /**
- * Compte du jour : basee sur le journal de caisse (entrees/sorties)
- * + marge estimee des ventes payees.
+ * Compte du jour : CA et taux bases UNIQUEMENT sur mouvements operationnels.
+ * Le fonds de caisse (float) est isole et n'entre pas dans les taux.
  */
 export function getDailyAccounting(date = new Date()): DailyAccounting {
   const day = startOfDay(date);
   const { invoices, purchases } = getStore();
   const products = listProducts();
   const ledger = listCashLedgerForDay(day);
+  const ops = sumOperationalCash(ledger);
+  const session = getCashSessionForDate(day);
+  const openingFloat = session?.openingFloat ?? 0;
+  const expectedDrawer = session
+    ? getExpectedDrawerBalance(session)
+    : ops.operationalNet;
 
-  const cashIn = ledger
-    .filter((e) => e.direction === "IN")
-    .reduce((sum, e) => sum + e.amount, 0);
-  const cashOut = ledger
-    .filter((e) => e.direction === "OUT")
-    .reduce((sum, e) => sum + e.amount, 0);
-  const netCash = cashIn - cashOut;
+  const cashIn = ops.operationalIn;
+  const cashOut = ops.operationalOut;
+  const netCash = ops.operationalNet;
+  const operationalLedger = ledger.filter(
+    (e) => e.sourceType !== "FLOAT_IN" && e.sourceType !== "FLOAT_OUT",
+  );
 
   const dayInvoices = invoices.filter(
-    (inv) => inv.status === "PAID" && isSameDay(new Date(inv.issuedAt), day),
+    (inv) =>
+      (inv.status === "PAID" || inv.status === "PARTIALLY_PAID") &&
+      isSameDay(new Date(inv.issuedAt), day) &&
+      (inv.amountPaid ?? 0) > 0,
   );
   const dayPurchasesReceived = purchases.filter(
     (pu) =>
@@ -100,7 +123,10 @@ export function getDailyAccounting(date = new Date()): DailyAccounting {
       isSameDay(new Date(pu.updatedAt), day),
   );
 
-  const salesTotal = dayInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
+  const salesTotal = dayInvoices.reduce(
+    (sum, inv) => sum + (inv.amountPaid ?? inv.totalAmount),
+    0,
+  );
   const purchasesTotal = dayPurchasesReceived.reduce(
     (sum, pu) => sum + pu.totalAmount,
     0,
@@ -240,6 +266,9 @@ export function getDailyAccounting(date = new Date()): DailyAccounting {
     cashIn,
     cashOut,
     netCash,
+    openingFloat,
+    expectedDrawer,
+    session,
     salesTotal,
     salesCount: dayInvoices.length,
     purchasesTotal,
@@ -252,8 +281,15 @@ export function getDailyAccounting(date = new Date()): DailyAccounting {
     outOfStockAlerts: active.filter((p) => p.quantity <= 0).length,
     expiryAlerts: countExpiryAlerts(day).total,
     ledger,
+    operationalLedger,
     salesByUser,
     topProducts,
     supplierComparisons,
+    periods: {
+      week: getPeriodStats("week", day),
+      month: getPeriodStats("month", day),
+      quarter: getPeriodStats("quarter", day),
+      year: getPeriodStats("year", day),
+    },
   };
 }

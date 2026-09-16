@@ -4,10 +4,13 @@ import { ProductPicker } from "@/components/sales/product-picker";
 import { CartPanel } from "@/components/sales/cart-panel";
 import { CheckoutPanel } from "@/components/sales/checkout-panel";
 import { ReimbursementPanel } from "@/components/sales/reimbursement-panel";
+import { PackPickerDialog } from "@/components/sales/pack-picker-dialog";
 import { SaleInvoicePreviewDialog } from "@/components/sales/sale-invoice-preview-dialog";
+import { CashSessionBar } from "@/components/accounting/cash-session-bar";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { ToastViewport } from "@/components/ui/toast";
 import { useSaleWorkspace } from "@/hooks/use-sale-workspace";
+import { getOpenCashSession } from "@/lib/repositories/cash-sessions";
 
 export function SalesWorkspace() {
   const {
@@ -28,9 +31,15 @@ export function SalesWorkspace() {
     prepareAmountThenFocusValidate,
   } = useSaleWorkspace();
 
+  const sessionOpen = !!getOpenCashSession();
+
   return (
     <>
-      <div className="relative grid min-h-0 w-full min-w-0 grid-cols-1 gap-2 max-md:auto-rows-auto md:h-full md:flex-1 md:grid-cols-[minmax(0,4fr)_minmax(0,3fr)_minmax(0,3fr)] md:overflow-hidden">
+      <div className="mb-2">
+        <CashSessionBar compact={!sessionOpen} />
+      </div>
+
+      <div className="relative grid min-h-0 w-full min-w-0 grid-cols-1 gap-2 max-md:auto-rows-auto md:h-[calc(100%-4.5rem)] md:flex-1 md:grid-cols-[minmax(0,4fr)_minmax(0,3fr)_minmax(0,3fr)] md:overflow-hidden">
         <div className="min-h-[240px] min-w-0 overflow-hidden md:h-full md:min-h-0">
           <ProductPicker
             ref={searchRef}
@@ -55,11 +64,11 @@ export function SalesWorkspace() {
         <div className="min-h-[240px] min-w-0 overflow-hidden md:h-full md:min-h-0">
           <CartPanel
             lines={state.lines}
-            onQuantityChange={(productId, quantity) =>
-              dispatch({ type: "SET_QUANTITY", productId, quantity })
+            onQuantityChange={(productId, quantity, packId) =>
+              dispatch({ type: "SET_QUANTITY", productId, quantity, packId })
             }
-            onRemove={(productId) =>
-              dispatch({ type: "REMOVE_LINE", productId })
+            onRemove={(productId, packId) =>
+              dispatch({ type: "REMOVE_LINE", productId, packId })
             }
             onClear={() => dispatch({ type: "OPEN_CLEAR" })}
           />
@@ -114,6 +123,20 @@ export function SalesWorkspace() {
       </div>
 
       <ToastViewport toast={state.toast} />
+
+      <PackPickerDialog
+        product={state.packPickerProduct}
+        lines={state.lines}
+        onClose={() => dispatch({ type: "SET_PACK_PICKER", product: null })}
+        onSelect={(pack) => {
+          if (!state.packPickerProduct) return;
+          dispatch({
+            type: "ADD_PRODUCT",
+            product: state.packPickerProduct,
+            pack,
+          });
+        }}
+      />
 
       <ConfirmDialog
         open={state.clearOpen}

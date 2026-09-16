@@ -1,4 +1,9 @@
-import type { CartLine, PaymentMethod, Product } from "@/lib/types";
+import type {
+  CartLine,
+  PaymentMethod,
+  Product,
+  ProductPackPrice,
+} from "@/lib/types";
 import {
   addProductToCart,
   getAvailableStock,
@@ -6,6 +11,7 @@ import {
   getCartTotal,
   getChangeDue,
   getCartItemCount,
+  getProductPacks,
   removeFromCart,
   resolveDiscountAmount,
   updateCartQuantity,
@@ -40,6 +46,8 @@ export type SaleState = {
   checkoutOpen: boolean;
   checkoutLoading: boolean;
   toast: SaleToast | null;
+  /** Produit en attente de choix de pack (multi-conditionnements). */
+  packPickerProduct: Product | null;
 };
 
 export const initialSaleState: SaleState = {
@@ -61,6 +69,7 @@ export const initialSaleState: SaleState = {
   checkoutOpen: false,
   checkoutLoading: false,
   toast: null,
+  packPickerProduct: null,
 };
 
 export type SaleAction =
@@ -71,9 +80,10 @@ export type SaleAction =
   | { type: "CLEAR_FLASH" }
   | { type: "CLEAR_TOAST" }
   | { type: "TOAST"; message: string; tone?: ToastTone }
-  | { type: "ADD_PRODUCT"; product: Product }
-  | { type: "SET_QUANTITY"; productId: string; quantity: number }
-  | { type: "REMOVE_LINE"; productId: string }
+  | { type: "ADD_PRODUCT"; product: Product; pack?: ProductPackPrice }
+  | { type: "SET_QUANTITY"; productId: string; quantity: number; packId?: string }
+  | { type: "REMOVE_LINE"; productId: string; packId?: string }
+  | { type: "SET_PACK_PICKER"; product: Product | null }
   | { type: "ADJUST_LAST_QTY"; delta: number }
   | { type: "SET_DISCOUNT"; value: number }
   | { type: "SET_DISCOUNT_MODE"; mode: DiscountMode }
@@ -144,23 +154,48 @@ export function saleReducer(state: SaleState, action: SaleAction): SaleState {
       if (getAvailableStock(action.product, state.lines) <= 0) {
         return withToast(state, "Stock insuffisant", "error");
       }
-      const lines = addProductToCart(state.lines, action.product, 1);
+      const packs = getProductPacks(action.product);
+      if (!action.pack && packs.length > 1) {
+        return {
+          ...state,
+          packPickerProduct: action.product,
+          query: "",
+        };
+      }
+      const lines = addProductToCart(
+        state.lines,
+        action.product,
+        1,
+        action.pack,
+      );
       const next = {
         ...state,
         lines,
         query: "",
         highlightedIndex: 0,
         flashProductId: action.product.id,
+        packPickerProduct: null,
         amountReceived: syncAmount({ ...state, lines }, lines),
       };
-      return withToast(next, `${action.product.name} ajoute`, "info");
+      const packLabel = action.pack?.name ?? packs[0]?.name;
+      return withToast(
+        next,
+        packLabel
+          ? `${action.product.name} (${packLabel}) ajoute`
+          : `${action.product.name} ajoute`,
+        "info",
+      );
     }
+
+    case "SET_PACK_PICKER":
+      return { ...state, packPickerProduct: action.product };
 
     case "SET_QUANTITY": {
       const lines = updateCartQuantity(
         state.lines,
         action.productId,
         action.quantity,
+        action.packId,
       );
       return {
         ...state,
@@ -170,7 +205,11 @@ export function saleReducer(state: SaleState, action: SaleAction): SaleState {
     }
 
     case "REMOVE_LINE": {
-      const lines = removeFromCart(state.lines, action.productId);
+      const lines = removeFromCart(
+        state.lines,
+        action.productId,
+        action.packId,
+      );
       return {
         ...state,
         lines,
@@ -185,6 +224,7 @@ export function saleReducer(state: SaleState, action: SaleAction): SaleState {
         state.lines,
         last.productId,
         last.quantity + action.delta,
+        last.packId ?? last.packName,
       );
       return {
         ...state,

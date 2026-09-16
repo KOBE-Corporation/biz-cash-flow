@@ -21,6 +21,8 @@ const sourceLabels: Record<CashSourceType, string> = {
   REFUND: "Remboursement",
   MANUAL: "Manuel",
   ADJUSTMENT: "Ajustement",
+  FLOAT_IN: "Fonds ouverture",
+  FLOAT_OUT: "Fonds cloture",
 };
 
 function formatTime(date: Date) {

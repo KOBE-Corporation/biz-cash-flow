@@ -18,7 +18,41 @@ export type CashSourceType =
   | "PURCHASE"
   | "REFUND"
   | "MANUAL"
-  | "ADJUSTMENT";
+  | "ADJUSTMENT"
+  /** Fonds de caisse (monnaie) — hors CA / hors taux. */
+  | "FLOAT_IN"
+  | "FLOAT_OUT";
+
+export type CashSessionStatus = "OPEN" | "CLOSED";
+
+/**
+ * Journee de caisse. Le fonds d'ouverture (float) sert de monnaie
+ * mais n'entre PAS dans le CA ni les taux (jour / semaine / trimestre / annee).
+ */
+export type CashSession = {
+  id: string;
+  /** Date metier YYYY-MM-DD (compteurs a 0 pour chaque nouvelle journee). */
+  businessDate: string;
+  status: CashSessionStatus;
+  /** Argent en caisse au demarrage (monnaie / report veille). */
+  openingFloat: number;
+  /** Comptage physique a la cloture. */
+  closingCounted?: number;
+  /** Solde theorique a la cloture (float + mouvements operationnels). */
+  expectedAtClose?: number;
+  /** Ecart = compte − attendu. */
+  variance?: number;
+  openedAt: Date;
+  closedAt?: Date;
+  openedById: string;
+  openedByName: string;
+  closedById?: string;
+  closedByName?: string;
+  openingNotes?: string;
+  closingNotes?: string;
+  /** Session precedente dont on a reporte le fonds. */
+  carriedFromSessionId?: string;
+};
 
 export type AuditAction =
   | "CREATE"
@@ -29,6 +63,8 @@ export type AuditAction =
   | "SALE"
   | "ADJUST"
   | "LOGIN"
+  | "OPEN_SESSION"
+  | "CLOSE_SESSION"
   | "OTHER";
 
 export type User = {
@@ -343,6 +379,7 @@ export type CartLine = {
   unitPrice: number;
   quantity: number;
   maxQuantity: number;
+  packId?: string;
   packName?: string;
   unitsOfBase?: number;
 };

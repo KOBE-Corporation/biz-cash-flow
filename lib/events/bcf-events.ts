@@ -6,6 +6,8 @@ export const BCF_EVENTS = {
   INVOICE_PAID: "bcf:invoice-paid",
   CREDIT_NOTE: "bcf:credit-note",
   STOCK_CHANGED: "bcf:stock-changed",
+  SESSION_OPENED: "bcf:session-opened",
+  SESSION_CLOSED: "bcf:session-closed",
 } as const;
 
 export type BcfEventName = (typeof BCF_EVENTS)[keyof typeof BCF_EVENTS];
@@ -17,6 +19,8 @@ export const BCF_SYNC_EVENTS: BcfEventName[] = [
   BCF_EVENTS.INVOICE_PAID,
   BCF_EVENTS.CREDIT_NOTE,
   BCF_EVENTS.STOCK_CHANGED,
+  BCF_EVENTS.SESSION_OPENED,
+  BCF_EVENTS.SESSION_CLOSED,
 ];
 
 export function dispatchBcfEvent(

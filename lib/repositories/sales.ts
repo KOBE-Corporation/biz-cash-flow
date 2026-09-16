@@ -1,5 +1,6 @@
 import { getActor } from "@/lib/repositories/audit";
 import { addInvoice } from "@/lib/repositories/invoices";
+import { requireOpenSessionForSale } from "@/lib/repositories/cash-sessions";
 import { createMovement } from "@/lib/repositories/movements";
 import { findProductByBarcode, getProduct } from "@/lib/repositories/products";
 import {
@@ -52,6 +53,9 @@ export function createSale(input: CreateSaleInput): CreateSaleResult {
   if (input.lines.length === 0) {
     return { ok: false, error: "Panier vide" };
   }
+
+  const sessionGate = requireOpenSessionForSale();
+  if (!sessionGate.ok) return sessionGate;
 
   const isCredit = input.paymentMethod === "CREDIT";
   const customerName = input.customerName.trim() || "Client";

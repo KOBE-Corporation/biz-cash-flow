@@ -62,11 +62,13 @@ Achat frequent en casier ; revente a l’unite ou au casier.
 | Fournisseurs        | OK     | CRUD |
 | Achats              | OK     | Fournisseur optionnel, reception stock, lots |
 | Mouvements stock    | OK     | IN / OUT / ADJUSTMENT |
-| Ventes (POS)        | OK     | Especes / MoMo / **a credit** ; packs partiels |
+| Ventes (POS)        | OK     | Multi-packs + credit + session caisse obligatoire |
 | Factures            | OK     | Credit, encaissement, avoir, annulation, partage |
-| Comptabilite jour   | OK     | Caisse, marges, alertes, entrees/sorties |
+| Comptabilite jour   | OK     | Float hors CA, taux periodiques, rapport PDF |
+| Sessions de caisse  | OK     | Ouverture/cloture, fonds monnaie, ecart |
 | Tableau de bord     | OK     | CA jour, solde, impayees, stock, sync live |
-| Navigation          | OK     | Exploitation + Finance, labels FR unifies |
+| Journal activite    | OK     | `/activite` + filtres |
+| Navigation          | OK     | Badges impayees / stock |
 | Sync mock client    | OK     | Evenements `bcf:*` + `useBcfRefresh` |
 | Auth multi-users    | Stub   | `CURRENT_USER` — a remplacer |
 | Audit trail         | OK     | `AuditLog` + champs `createdBy` (UI journal a faire) |
@@ -89,12 +91,12 @@ Achat frequent en casier ; revente a l’unite ou au casier.
 - [x] Tracabilite User sur toutes les operations (schema + repos + AuditLog)
 - [x] Categories : politique flexible (fabrication, peremption, lot, serie, alertes, remise)
 - [x] Produits / achats : dates & lots selon categorie + alertes peremption (remise suggeree)
-- [ ] Vente multi-packs dans `/sales` (choix paquet / cartouche / casier)
-- [ ] Decrement stock en unites de base selon le pack vendu
-- [ ] Blocage vente si stock < unites du pack choisi (message clair)
+- [x] Vente multi-packs dans `/sales` (choix paquet / cartouche / casier)
+- [x] Decrement stock en unites de base selon le pack vendu
+- [x] Blocage vente si stock < unites du pack choisi (message clair)
 - [ ] Avertissement « sous le cout » en caisse (vendeur decide quand meme)
 - [ ] Affichage stock restant en unites de base + equivalent packs (ex. 240 = 1 carton + 2 cartouches)
-- [ ] Page UI « Journal d’activite » (lecture `AuditLog`, filtres date / user / entite)
+- [x] Page UI « Journal d’activite » (lecture `AuditLog`, filtres date / user / entite)
 - [ ] Templates categories rapides a la creation (Cigarettes / Bieres / Piece)
 - [ ] Sync des `packLevels` produit quand la categorie change (avec confirmation)
 - [ ] Duplication rapide d’un produit (meme packs/prix, nouveau SKU + barcode)
@@ -115,10 +117,11 @@ Achat frequent en casier ; revente a l’unite ou au casier.
 - [x] Tableau de bord live (CA, caisse, impayees, stock, peremption)
 - [x] Sync cross-pages (ventes ↔ factures ↔ compta ↔ dashboard)
 - [x] Navigation unifiee (Factures dans Exploitation, labels FR)
-- [ ] Sessions de caisse (ouverture / fermeture / ecart)
-- [ ] Compte de caisse du jour imprimable (PDF)
+- [x] Sessions de caisse (ouverture / fermeture / ecart) + fonds monnaie hors CA
+- [x] Compte de caisse du jour imprimable (PDF / HTML)
 - [x] Alertes stock sur dashboard (+ liens filtres produits)
-- [ ] Badge nav compteurs (impayees / stock faible)
+- [x] Badge nav compteurs (impayees / stock faible)
+- [x] Journal d'activite (`/activite`, lecture AuditLog)
 - [ ] Historique prix de vente (qui a change quoi)
 - [ ] Panier suspendu / reprise (hold & recall multi-tickets)
 - [ ] Favoris / raccourcis produits en grille caisse

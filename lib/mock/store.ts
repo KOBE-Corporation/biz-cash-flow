@@ -3,6 +3,7 @@ import { generateBarcode } from "@/lib/sales/pricing";
 import type {
   AuditLog,
   CashLedgerEntry,
+  CashSession,
   Category,
   CreditNote,
   Invoice,
@@ -618,6 +619,7 @@ export type MockStore = {
   invoices: Invoice[];
   creditNotes: CreditNote[];
   cashLedger: CashLedgerEntry[];
+  cashSessions: CashSession[];
   auditLogs: AuditLog[];
 };
 
@@ -633,12 +635,13 @@ function createSeedStore(): MockStore {
     invoices: structuredClone(seedInvoices),
     creditNotes: [],
     cashLedger: structuredClone(seedCashLedger),
+    cashSessions: [],
     auditLogs: [],
   };
 }
 
 /** Invalide le store HMR obsolete (evite mismatch SSR/client). */
-const STORE_VERSION = 8;
+const STORE_VERSION = 9;
 
 const globalStore = globalThis as unknown as {
   __bcfMockStore?: MockStore;

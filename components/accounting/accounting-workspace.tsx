@@ -13,7 +13,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader, StatCard } from "@/components/ui/page-header";
+import { CashSessionBar } from "@/components/accounting/cash-session-bar";
 import { useBcfRefresh } from "@/hooks/use-bcf-refresh";
+import { downloadDailyReportPdf } from "@/lib/accounting/daily-report";
 import { paymentMethodLabels } from "@/lib/sales/cart";
 import { getDailyAccounting } from "@/lib/repositories/accounting";
 import { formatCurrency } from "@/lib/utils";
@@ -65,6 +67,10 @@ export function AccountingWorkspace() {
     window.print();
   };
 
+  const handlePdf = () => {
+    downloadDailyReportPdf(data!);
+  };
+
   if (!data) {
     return (
       <div className="space-y-6">
@@ -88,22 +94,31 @@ export function AccountingWorkspace() {
     <div className="space-y-6 print:space-y-4">
       <PageHeader
         title="Comptabilite"
-        description="Journal de caisse du jour : entrees, sorties, gains/pertes et tracabilite utilisateur."
+        description="Caisse du jour (hors fonds monnaie), taux periodiques, rapport PDF."
         actions={
           <div className="flex flex-wrap gap-2 print:hidden">
             <Button variant="outline" onClick={bump}>
               Actualiser
             </Button>
+            <Button variant="outline" onClick={handlePdf}>
+              <Printer className="h-4 w-4" />
+              Rapport PDF
+            </Button>
             <Button variant="success" onClick={handlePrint}>
               <Printer className="h-4 w-4" />
-              Imprimer le jour
+              Imprimer
             </Button>
           </div>
         }
       />
 
+      <CashSessionBar onChanged={bump} />
+
       <p className="text-sm text-muted-foreground print:text-foreground">
         Journee du {formatDayLabel(data.date)}
+        {data.session
+          ? ` · Session ${data.session.status} · Fonds ${formatCurrency(data.openingFloat)} (hors CA)`
+          : " · Aucune session ouverte"}
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -112,9 +127,9 @@ export function AccountingWorkspace() {
           className="block rounded-xl outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
         >
           <StatCard
-            title="Entrees caisse"
+            title="Entrees metier"
             value={formatCurrency(data.cashIn)}
-            subtitle={`${data.salesCount} vente(s) — cliquer`}
+            subtitle={`${data.salesCount} vente(s) — hors float`}
             variant="success"
             className="transition-colors hover:bg-surface-active/40"
           />
@@ -124,32 +139,61 @@ export function AccountingWorkspace() {
           className="block rounded-xl outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
         >
           <StatCard
-            title="Sorties caisse"
+            title="Sorties metier"
             value={formatCurrency(data.cashOut)}
-            subtitle={`${data.purchasesCount} achat(s) — cliquer`}
+            subtitle={`${data.purchasesCount} achat(s) — hors float`}
             variant="danger"
             className="transition-colors hover:bg-surface-active/40"
           />
         </Link>
         <StatCard
-          title="Solde caisse du jour"
+          title="Net metier du jour"
           value={formatCurrency(data.netCash)}
-          subtitle="Entrees − sorties"
+          subtitle="Base des taux (float exclu)"
           variant={data.netCash >= 0 ? "success" : "danger"}
         />
         <StatCard
-          title="Marge / resultat"
-          value={formatCurrency(data.estimatedMargin)}
-          subtitle={`Resultat simplifie : ${formatCurrency(data.dailyResult)}`}
-          variant={data.estimatedMargin >= 0 ? "success" : "danger"}
+          title="Tiroir theorique"
+          value={formatCurrency(data.expectedDrawer)}
+          subtitle={`Float ${formatCurrency(data.openingFloat)} + net`}
+          variant="success"
+        />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 print:hidden">
+        <StatCard
+          title="CA semaine"
+          value={formatCurrency(data.periods.week.salesTotal)}
+          subtitle={`Moy. ${formatCurrency(data.periods.week.avgDailySales)}/j`}
+        />
+        <StatCard
+          title="CA mois"
+          value={formatCurrency(data.periods.month.salesTotal)}
+          subtitle={`Moy. ${formatCurrency(data.periods.month.avgDailySales)}/j`}
+        />
+        <StatCard
+          title="CA trimestre"
+          value={formatCurrency(data.periods.quarter.salesTotal)}
+          subtitle={data.periods.quarter.label}
+        />
+        <StatCard
+          title="CA annee"
+          value={formatCurrency(data.periods.year.salesTotal)}
+          subtitle={data.periods.year.label}
         />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <StatCard
+          title="Marge / resultat"
+          value={formatCurrency(data.estimatedMargin)}
+          subtitle={`Resultat : ${formatCurrency(data.dailyResult)}`}
+          variant={data.estimatedMargin >= 0 ? "success" : "danger"}
+        />
+        <StatCard
           title="CA ventes"
           value={formatCurrency(data.salesTotal)}
-          subtitle="Factures payees du jour"
+          subtitle="Encaisse du jour"
         />
         <Link
           href="/comptabilite/sorties"
@@ -162,6 +206,9 @@ export function AccountingWorkspace() {
             className="transition-colors hover:bg-surface-active/40"
           />
         </Link>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-1">
         <Link href="/comptabilite/stock" className="block rounded-xl outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring">
           <StatCard
             title="Alertes stock"
@@ -174,6 +221,7 @@ export function AccountingWorkspace() {
                   ? "warning"
                   : "success"
             }
+            className="transition-colors hover:bg-surface-active/40"
           />
         </Link>
       </div>

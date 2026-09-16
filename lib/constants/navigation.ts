@@ -2,6 +2,7 @@ import {
   ArrowLeftRight,
   Boxes,
   CircleDollarSign,
+  ClipboardList,
   FileText,
   LayoutDashboard,
   List,
@@ -15,6 +16,8 @@ export type NavItem = {
   label: string;
   href: string;
   icon: LucideIcon;
+  /** Compteur dynamique optionnel (impayees, stock…). */
+  badgeKey?: "unpaid" | "lowStock";
 };
 
 export type BreadcrumbItem = {
@@ -25,8 +28,8 @@ export type BreadcrumbItem = {
 export const mainNavigation: NavItem[] = [
   { label: "Tableau de bord", href: "/", icon: LayoutDashboard },
   { label: "Vente", href: "/sales", icon: CircleDollarSign },
-  { label: "Factures", href: "/factures", icon: FileText },
-  { label: "Produits", href: "/produits", icon: Boxes },
+  { label: "Factures", href: "/factures", icon: FileText, badgeKey: "unpaid" },
+  { label: "Produits", href: "/produits", icon: Boxes, badgeKey: "lowStock" },
   { label: "Categories", href: "/categories", icon: List },
   { label: "Mouvements", href: "/mouvements", icon: ArrowLeftRight },
   { label: "Fournisseurs", href: "/fournisseurs", icon: Truck },
@@ -35,6 +38,7 @@ export const mainNavigation: NavItem[] = [
 export const secondaryNavigation: NavItem[] = [
   { label: "Achats", href: "/achats", icon: ShoppingCart },
   { label: "Comptabilite", href: "/comptabilite", icon: Wallet },
+  { label: "Activite", href: "/activite", icon: ClipboardList },
 ];
 
 export const allNavigation: NavItem[] = [
@@ -51,6 +55,7 @@ const segmentLabels: Record<string, string> = {
   factures: "Factures",
   achats: "Achats",
   comptabilite: "Comptabilite",
+  activite: "Activite",
   stock: "Alertes stock",
   sorties: "Sorties caisse",
   entrees: "Entrees caisse",

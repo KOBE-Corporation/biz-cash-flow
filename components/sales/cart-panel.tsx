@@ -10,8 +10,12 @@ import { cn, formatCurrency } from "@/lib/utils";
 
 type CartPanelProps = {
   lines: CartLine[];
-  onQuantityChange: (productId: string, quantity: number) => void;
-  onRemove: (productId: string) => void;
+  onQuantityChange: (
+    productId: string,
+    quantity: number,
+    packId?: string,
+  ) => void;
+  onRemove: (productId: string, packId?: string) => void;
   onClear: () => void;
 };
 
@@ -64,7 +68,7 @@ export function CartPanel({
             const isLast = index === lines.length - 1;
             return (
               <div
-                key={line.productId}
+                key={`${line.productId}-${line.packId ?? line.packName ?? "base"}`}
                 className={cn(
                   "rounded-lg bg-surface-2 px-2.5 py-2 transition-colors",
                   isLast && "ring-1 ring-primary/30",
@@ -76,12 +80,19 @@ export function CartPanel({
                       {line.name}
                     </p>
                     <p className="truncate text-[10px] text-muted-foreground">
-                      {line.sku} · {formatCurrency(line.unitPrice)}
+                      {line.sku}
+                      {line.packName ? ` · ${line.packName}` : ""}
+                      {line.unitsOfBase && line.unitsOfBase > 1
+                        ? ` (${line.unitsOfBase} u.)`
+                        : ""}{" "}
+                      · {formatCurrency(line.unitPrice)}
                     </p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => onRemove(line.productId)}
+                    onClick={() =>
+                      onRemove(line.productId, line.packId ?? line.packName)
+                    }
                     className="rounded-md p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                     aria-label={`Retirer ${line.name}`}
                   >
@@ -97,7 +108,11 @@ export function CartPanel({
                       className="h-6 w-6"
                       disabled={line.quantity <= 1}
                       onClick={() =>
-                        onQuantityChange(line.productId, line.quantity - 1)
+                        onQuantityChange(
+                          line.productId,
+                          line.quantity - 1,
+                          line.packId ?? line.packName,
+                        )
                       }
                       aria-label="Diminuer"
                     >
@@ -112,6 +127,7 @@ export function CartPanel({
                         onQuantityChange(
                           line.productId,
                           Number(event.target.value) || 1,
+                          line.packId ?? line.packName,
                         )
                       }
                       className="h-6 w-9 border-0 bg-transparent px-0 text-center text-xs shadow-none"
@@ -122,7 +138,11 @@ export function CartPanel({
                       className="h-6 w-6"
                       disabled={line.quantity >= line.maxQuantity}
                       onClick={() =>
-                        onQuantityChange(line.productId, line.quantity + 1)
+                        onQuantityChange(
+                          line.productId,
+                          line.quantity + 1,
+                          line.packId ?? line.packName,
+                        )
                       }
                       aria-label="Augmenter"
                     >
@@ -147,7 +167,13 @@ export function CartPanel({
                         className="px-1.5 py-0.5 text-[10px]"
                         active={line.quantity === qty}
                         disabled={qty > line.maxQuantity}
-                        onClick={() => onQuantityChange(line.productId, qty)}
+                        onClick={() =>
+                          onQuantityChange(
+                            line.productId,
+                            qty,
+                            line.packId ?? line.packName,
+                          )
+                        }
                       >
                         ×{qty}
                       </Chip>
@@ -155,7 +181,11 @@ export function CartPanel({
                     <Chip
                       className="px-1.5 py-0.5 text-[10px]"
                       onClick={() =>
-                        onQuantityChange(line.productId, line.maxQuantity)
+                        onQuantityChange(
+                          line.productId,
+                          line.maxQuantity,
+                          line.packId ?? line.packName,
+                        )
                       }
                     >
                       Max
