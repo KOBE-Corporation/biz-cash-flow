@@ -9,6 +9,26 @@ export function listOffersForProduct(productId: string) {
     .sort((a, b) => a.costPerBaseUnit - b.costPerBaseUnit);
 }
 
+export function listOffersForSupplier(supplierId: string) {
+  return getStore()
+    .supplierOffers.filter((offer) => offer.supplierId === supplierId)
+    .sort((a, b) => a.costPerBaseUnit - b.costPerBaseUnit);
+}
+
+export function countOffersForSupplier(supplierId: string) {
+  return getStore().supplierOffers.filter((o) => o.supplierId === supplierId)
+    .length;
+}
+
+export function deleteOffersForSupplier(supplierId: string) {
+  const store = getStore();
+  const before = store.supplierOffers.length;
+  store.supplierOffers = store.supplierOffers.filter(
+    (o) => o.supplierId !== supplierId,
+  );
+  return before - store.supplierOffers.length;
+}
+
 export function upsertSupplierOffer(input: {
   productId: string;
   supplierId: string;

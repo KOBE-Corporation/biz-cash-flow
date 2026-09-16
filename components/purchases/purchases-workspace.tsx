@@ -250,9 +250,9 @@ export function PurchasesWorkspace() {
   );
 
   const openCreate = useCallback(
-    (opts?: { openProductForm?: boolean }) => {
+    (opts?: { openProductForm?: boolean; supplierId?: string }) => {
       setEditingId(null);
-      setSupplierId("");
+      setSupplierId(opts?.supplierId ?? "");
       setNotes("");
       // Ligne vide : l'utilisateur choisit ou cree le produit (evite un prefill surprise).
       setLines([newLine("", "0")]);
@@ -267,10 +267,27 @@ export function PurchasesWorkspace() {
   );
 
   useEffect(() => {
-    if (searchParams.get("nouveau") !== "1") return;
-    openCreate({ openProductForm: true });
-    router.replace("/achats", { scroll: false });
-  }, [openCreate, router, searchParams]);
+    const nouveau = searchParams.get("nouveau") === "1";
+    const supplierFromUrl = searchParams.get("supplierId");
+    if (!nouveau && !supplierFromUrl) return;
+
+    if (nouveau) {
+      openCreate({
+        openProductForm: !supplierFromUrl,
+        supplierId: supplierFromUrl ?? undefined,
+      });
+      router.replace("/achats", { scroll: false });
+      return;
+    }
+
+    if (supplierFromUrl) {
+      const supplier = listSuppliers().find((s) => s.id === supplierFromUrl);
+      if (supplier) list.setSearch(supplier.name);
+      router.replace("/achats", { scroll: false });
+    }
+    // Intentionnel : ne reagir qu'a l'URL d'entree
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const openEdit = (purchase: Purchase) => {
     if (purchase.status !== "PENDING") {

@@ -395,6 +395,63 @@ export function AccountingWorkspace() {
       </section>
 
       <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-base font-semibold">Comparaison fournisseurs</h2>
+          <Link
+            href="/fournisseurs"
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            Voir fournisseurs →
+          </Link>
+        </div>
+        {data.supplierComparisons.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Au moins 2 offres par produit sont necessaires (receptionnez des
+            achats chez plusieurs fournisseurs).
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {data.supplierComparisons.slice(0, 6).map((row) => (
+              <div
+                key={row.productId}
+                className="rounded-2xl border border-border px-4 py-3"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium">{row.productName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Meilleur {formatCurrency(row.bestCost)} / u. · pire{" "}
+                      {formatCurrency(row.worstCost)} / u.
+                    </p>
+                  </div>
+                  <Badge variant="success">
+                    Eco. max {formatCurrency(row.potentialSavingPerBase)} / u.
+                  </Badge>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {row.offers.map((offer) => (
+                    <Badge
+                      key={`${offer.supplierName}-${offer.purchasePackName}`}
+                      variant={
+                        offer.costPerBaseUnit <= row.bestCost
+                          ? "success"
+                          : "outline"
+                      }
+                      className="text-[10px]"
+                    >
+                      {offer.supplierName}:{" "}
+                      {formatCurrency(offer.costPerBaseUnit)}/
+                      {offer.purchasePackName}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
         <h2 className="text-base font-semibold">Journal de caisse</h2>
         {data.operationalLedger.length === 0 ? (
           <p className="text-sm text-muted-foreground">

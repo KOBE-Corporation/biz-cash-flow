@@ -84,11 +84,15 @@ export function ProductsWorkspace() {
     parseStockFilter(searchParams.get("filter")),
   );
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [supplierFilter, setSupplierFilter] = useState(
+    () => searchParams.get("supplierId") ?? "all",
+  );
   const [form, setForm] = useState<ProductFormState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setStockFilter(parseStockFilter(searchParams.get("filter")));
+    setSupplierFilter(searchParams.get("supplierId") ?? "all");
   }, [searchParams]);
 
   const applyStockFilter = (value: StockFilter) => {
@@ -136,6 +140,9 @@ export function ProductsWorkspace() {
       if (categoryFilter !== "all" && item.categoryId !== categoryFilter) {
         return false;
       }
+      if (supplierFilter !== "all" && item.supplierId !== supplierFilter) {
+        return false;
+      }
       if (stockFilter === "expiring") {
         const category = categories.find((c) => c.id === item.categoryId);
         const status = getExpiryStatus(item, category);
@@ -155,7 +162,7 @@ export function ProductsWorkspace() {
         (item.batchNumber?.toLowerCase().includes(q) ?? false)
       );
     },
-    [categories, categoryFilter, stockFilter],
+    [categories, categoryFilter, stockFilter, supplierFilter],
   );
 
   const list = useEntityList(items, filterFn);
@@ -283,6 +290,19 @@ export function ProductsWorkspace() {
           {categoryName(row.categoryId)}
         </span>
       ),
+    },
+    {
+      key: "supplier",
+      header: "Fournisseur",
+      hideOnMobile: true,
+      cell: (row) => {
+        const name = suppliers.find((s) => s.id === row.supplierId)?.name;
+        return (
+          <span className="text-xs text-muted-foreground">
+            {name ?? "—"}
+          </span>
+        );
+      },
     },
     {
       key: "stock",
@@ -487,6 +507,28 @@ export function ProductsWorkspace() {
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={supplierFilter}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSupplierFilter(value);
+                const params = new URLSearchParams(searchParams.toString());
+                if (value === "all") params.delete("supplierId");
+                else params.set("supplierId", value);
+                const qs = params.toString();
+                router.replace(qs ? `/produits?${qs}` : "/produits", {
+                  scroll: false,
+                });
+              }}
+              className="h-9 rounded-xl border border-border bg-input px-3 text-xs text-foreground"
+            >
+              <option value="all">Tous fournisseurs</option>
+              {suppliers.map((supplier) => (
+                <option key={supplier.id} value={supplier.id}>
+                  {supplier.name}
                 </option>
               ))}
             </select>

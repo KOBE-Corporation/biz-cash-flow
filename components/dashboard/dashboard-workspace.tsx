@@ -187,11 +187,13 @@ export function DashboardWorkspace() {
           value={stats.totalCategories}
           subtitle="Familles actives"
         />
-        <StatCard
-          title="Fournisseurs"
-          value={stats.totalSuppliers}
-          subtitle="Actifs"
-        />
+        <Link href="/fournisseurs" className="block">
+          <StatCard
+            title="Fournisseurs"
+            value={stats.totalSuppliers}
+            subtitle="Actifs · cliquer"
+          />
+        </Link>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
