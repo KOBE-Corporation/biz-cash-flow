@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { AlertTriangle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,8 @@ type DialogProps = {
   footer?: React.ReactNode;
   className?: string;
   showClose?: boolean;
+  /** Remplace le bloc titre / description par defaut. */
+  header?: React.ReactNode;
 };
 
 export function Dialog({
@@ -26,6 +28,7 @@ export function Dialog({
   footer,
   className,
   showClose = true,
+  header,
 }: DialogProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -66,7 +69,7 @@ export function Dialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        aria-describedby={description ? descriptionId : undefined}
+        aria-describedby={description && !header ? descriptionId : undefined}
         tabIndex={-1}
         className={cn(
           "relative z-[201] flex w-full max-w-md flex-col overflow-hidden border border-border bg-card shadow-card outline-none",
@@ -76,25 +79,37 @@ export function Dialog({
           className,
         )}
       >
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
-          <div className="min-w-0 space-y-1.5">
-            <h2 id={titleId} className="text-base font-semibold text-foreground sm:text-lg">
-              {title}
-            </h2>
-            {description ? (
-              <p
-                id={descriptionId}
-                className="text-sm leading-relaxed text-muted-foreground"
+        <div className="relative flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
+          {header ? (
+            <>
+              <h2 id={titleId} className="sr-only">
+                {title}
+              </h2>
+              <div className="min-w-0 flex-1">{header}</div>
+            </>
+          ) : (
+            <div className="min-w-0 space-y-1.5">
+              <h2
+                id={titleId}
+                className="text-base font-semibold text-foreground sm:text-lg"
               >
-                {description}
-              </p>
-            ) : null}
-          </div>
+                {title}
+              </h2>
+              {description ? (
+                <p
+                  id={descriptionId}
+                  className="text-sm leading-relaxed text-muted-foreground"
+                >
+                  {description}
+                </p>
+              ) : null}
+            </div>
+          )}
           {showClose ? (
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 shrink-0"
+              className="absolute right-3 top-3 h-8 w-8 shrink-0 sm:right-4 sm:top-4"
               aria-label="Fermer"
               onClick={() => onOpenChange(false)}
             >
@@ -138,7 +153,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = "Confirmer",
-  cancelLabel = "Annuler",
+  cancelLabel: _cancelLabel = "Annuler",
   variant = "default",
   loading = false,
   onConfirm,
@@ -148,6 +163,13 @@ export function ConfirmDialog({
     onOpenChange(false);
   };
 
+  const iconTone =
+    variant === "destructive"
+      ? "bg-destructive/15 text-destructive"
+      : variant === "warning"
+        ? "bg-warning/15 text-warning"
+        : "bg-primary/15 text-primary";
+
   return (
     <Dialog
       open={open}
@@ -155,19 +177,29 @@ export function ConfirmDialog({
       title={title}
       description={description}
       showClose={!loading}
+      header={
+        <div className="flex w-full flex-col items-center gap-3 px-6 pt-1 text-center">
+          <div
+            className={cn(
+              "flex h-12 w-12 items-center justify-center rounded-full",
+              iconTone,
+            )}
+            aria-hidden
+          >
+            <AlertTriangle className="h-6 w-6" strokeWidth={2} />
+          </div>
+          <p className="text-base font-semibold text-foreground sm:text-lg">
+            {title}
+          </p>
+        </div>
+      }
       footer={
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button
-            variant="outline"
-            disabled={loading}
-            onClick={() => onOpenChange(false)}
-          >
-            {cancelLabel}
-          </Button>
           <Button
             variant={variant === "destructive" ? "destructive" : "default"}
             disabled={loading}
             className={cn(
+              "w-full sm:w-auto",
               variant === "warning" &&
                 "bg-warning text-warning-foreground hover:bg-warning/90",
             )}
@@ -177,6 +209,24 @@ export function ConfirmDialog({
           </Button>
         </div>
       }
-    />
+    >
+      <div className="space-y-3 text-center sm:text-left">
+        <p className="text-sm leading-relaxed text-foreground">
+          Cette operation entrainera une{" "}
+          <span className="font-medium">modification de la comptabilite</span>
+          {" "}(ventes, achats, marges ou stock valorise).
+        </p>
+        {description ? (
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {description}
+          </p>
+        ) : (
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Verifiez bien avant de confirmer : l&apos;action peut etre difficile
+            a reverser.
+          </p>
+        )}
+      </div>
+    </Dialog>
   );
 }

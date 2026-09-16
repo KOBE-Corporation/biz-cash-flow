@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Check, Plus, Trash2, X } from "lucide-react";
+import { ProductSearchSelect } from "@/components/purchases/product-search-select";
 import { DataTable, type DataColumn } from "@/components/crud/data-table";
 import { FormDialog } from "@/components/crud/form-dialog";
 import { CrudToolbar } from "@/components/crud/toolbar";
@@ -59,7 +60,10 @@ type NewProductForm = {
   packPurchasePrice: string;
   unitsPerPurchasePack: string;
   purchasePackName: string;
+  /** Prix de vente de l'unite de base (saisi manuellement). */
   salePrice: string;
+  /** Prix de vente du lot achete (ex. casier / carton). */
+  packSalePrice: string;
   minStock: string;
   description: string;
 };
@@ -116,7 +120,8 @@ export function PurchasesWorkspace() {
     packPurchasePrice: "0",
     unitsPerPurchasePack: "1",
     purchasePackName: "piece",
-    salePrice: "0",
+    salePrice: "",
+    packSalePrice: "",
     minStock: "0",
     description: "",
   });
@@ -143,10 +148,17 @@ export function PurchasesWorkspace() {
     );
   }, [newProduct.packPurchasePrice, newProduct.unitsPerPurchasePack]);
 
-  const suggestedSale = useMemo(
+  const minSaleHint = useMemo(
     () => suggestBaseSalePrice(suggestedCost),
     [suggestedCost],
   );
+
+  const unitSale = Number(newProduct.salePrice) || 0;
+  const packSale = Number(newProduct.packSalePrice) || 0;
+  const unitsInLot = Math.max(1, Number(newProduct.unitsPerPurchasePack) || 1);
+  const packCost = Number(newProduct.packPurchasePrice) || 0;
+  const potentialGainUnit = unitSale - suggestedCost;
+  const potentialGainPack = packSale - packCost;
 
   const filterFn = useCallback(
     (item: Purchase, query: string) => {
@@ -179,7 +191,8 @@ export function PurchasesWorkspace() {
         packPurchasePrice: "0",
         unitsPerPurchasePack: String(largest?.unitsOfBase ?? 1),
         purchasePackName: largest?.name ?? category?.baseUnitName ?? "piece",
-        salePrice: "0",
+        salePrice: "",
+        packSalePrice: "",
         minStock: "0",
         description: "",
       });
@@ -278,14 +291,39 @@ export function PurchasesWorkspace() {
     const units = Math.max(1, Number(newProduct.unitsPerPurchasePack) || 1);
     const packPrice = Number(newProduct.packPurchasePrice) || 0;
     const cost = costPerBaseUnit(packPrice, units);
-    const sale =
-      Number(newProduct.salePrice) || suggestBaseSalePrice(cost) || 0;
+    const sale = Number(newProduct.salePrice);
+    if (!newProduct.salePrice.trim() || sale <= 0) {
+      setProductError(
+        `Indiquez le prix de vente / ${category.baseUnitName} (saisie manuelle)`,
+      );
+      return;
+    }
+
+    const packSaleRaw = newProduct.packSalePrice.trim();
+    const packSale =
+      packSaleRaw !== ""
+        ? Number(packSaleRaw)
+        : sale * units;
+    if (packSaleRaw !== "" && (!(packSale > 0) || Number.isNaN(packSale))) {
+      setProductError("Prix de vente du lot invalide");
+      return;
+    }
+
     const packLevels: ProductPackPrice[] = templatesToProductPrices(
       category.packLevels,
       cost,
-    ).map((level) =>
-      level.unitsOfBase === 1 ? { ...level, salePrice: sale } : level,
-    );
+    ).map((level) => {
+      if (level.unitsOfBase === 1) {
+        return { ...level, salePrice: sale };
+      }
+      if (
+        level.name === newProduct.purchasePackName ||
+        level.unitsOfBase === units
+      ) {
+        return { ...level, salePrice: packSale };
+      }
+      return level;
+    });
 
     const result = createProduct({
       name: newProduct.name,
@@ -327,7 +365,7 @@ export function PurchasesWorkspace() {
     });
     setProductFormOpen(false);
     showToast(
-      `Produit « ${product.name} » cree (CB ${product.barcode})`,
+      `Produit « ${product.name} » cree (stock 0 — reception pour alimenter)`,
       "success",
     );
   };
@@ -384,6 +422,7 @@ export function PurchasesWorkspace() {
   const cancel = async (purchase: Purchase) => {
     const ok = await confirm({
       title: "Annuler cet achat ?",
+      description: `L'achat ${purchase.reference} passera au statut Annule. Aucun stock ne sera ajoute.`,
       confirmLabel: "Annuler l'achat",
       variant: "destructive",
     });
@@ -445,14 +484,25 @@ export function PurchasesWorkspace() {
           onClick={(e) => e.stopPropagation()}
         >
           {row.status === "PENDING" ? (
-            <Button
-              size="sm"
-              className="h-8 bg-success text-success-foreground hover:bg-success/90"
-              onClick={() => void receive(row)}
-            >
-              <Check className="h-3.5 w-3.5" />
-              Recevoir
-            </Button>
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8"
+                onClick={() => void cancel(row)}
+              >
+                <X className="h-3.5 w-3.5" />
+                Annuler
+              </Button>
+              <Button
+                size="sm"
+                className="h-8 bg-success text-success-foreground hover:bg-success/90"
+                onClick={() => void receive(row)}
+              >
+                <Check className="h-3.5 w-3.5" />
+                Recevoir
+              </Button>
+            </>
           ) : null}
         </div>
       ),
@@ -596,40 +646,36 @@ export function PurchasesWorkspace() {
                 className="space-y-2 rounded-xl bg-surface-2 p-2"
               >
                 <div className="grid gap-2 sm:grid-cols-[1fr_36px]">
-                  <select
+                  <ProductSearchSelect
+                    products={products}
                     value={line.productId}
-                    onChange={(e) => {
-                      const next = products.find((p) => p.id === e.target.value);
+                    placeholder="Nom, SKU ou code-barres…"
+                    onChange={(productId, next) => {
                       const pack = next?.packLevels.at(-1);
                       setLines((prev) =>
                         prev.map((item, i) =>
                           i === index
                             ? {
                                 ...item,
-                                productId: e.target.value,
-                                unitPrice: String(
-                                  (next?.purchasePrice ?? 0) *
-                                    (pack?.unitsOfBase ?? 1),
-                                ),
-                                purchasePackName:
-                                  pack?.name ?? next?.baseUnitName ?? "piece",
-                                unitsPerPurchasePack: String(
-                                  pack?.unitsOfBase ?? 1,
-                                ),
+                                productId,
+                                unitPrice: next
+                                  ? String(
+                                      (next.purchasePrice ?? 0) *
+                                        (pack?.unitsOfBase ?? 1),
+                                    )
+                                  : item.unitPrice,
+                                purchasePackName: next
+                                  ? (pack?.name ?? next.baseUnitName ?? "piece")
+                                  : item.purchasePackName,
+                                unitsPerPurchasePack: next
+                                  ? String(pack?.unitsOfBase ?? 1)
+                                  : item.unitsPerPurchasePack,
                               }
                             : item,
                         ),
                       );
                     }}
-                    className="h-10 rounded-lg border border-border bg-input px-2 text-xs"
-                  >
-                    <option value="">Choisir un produit…</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
+                  />
                   <Button
                     type="button"
                     variant="ghost"
@@ -771,7 +817,7 @@ export function PurchasesWorkspace() {
         open={productFormOpen}
         onOpenChange={setProductFormOpen}
         title="Nouveau produit"
-        description="Categorie obligatoire. Prix vente decide par vous — suggestion = cout unitaire."
+        description="Stock initial = 0. Seule une reception d'achat augmente le stock. Prix de vente saisis manuellement."
         className="max-w-lg"
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -798,10 +844,15 @@ export function PurchasesWorkspace() {
             <Label>SKU</Label>
             <Input
               value={newProduct.sku}
+              placeholder="Ex. BEAUFORT-33CL"
               onChange={(e) =>
                 setNewProduct((p) => ({ ...p, sku: e.target.value }))
               }
             />
+            <p className="text-[11px] text-muted-foreground">
+              Reference interne unique (pas le code-barres). Sert a retrouver le
+              produit vite.
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label>Code-barres</Label>
@@ -894,46 +945,29 @@ export function PurchasesWorkspace() {
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label>Prix du lot</Label>
+            <Label>Prix d&apos;achat du lot</Label>
             <Input
               type="number"
               min={0}
               value={newProduct.packPurchasePrice}
-              onChange={(e) => {
-                const packPurchasePrice = e.target.value;
-                const cost = costPerBaseUnit(
-                  Number(packPurchasePrice) || 0,
-                  Number(newProduct.unitsPerPurchasePack) || 1,
-                );
+              onChange={(e) =>
                 setNewProduct((p) => ({
                   ...p,
-                  packPurchasePrice,
-                  salePrice: String(suggestBaseSalePrice(cost) || 0),
-                }));
-              }}
+                  packPurchasePrice: e.target.value,
+                }))
+              }
             />
           </div>
           <div className="space-y-1.5">
             <Label>
-              Prix vente / {selectedCategory?.baseUnitName || "unite"}
+              Cout / {selectedCategory?.baseUnitName || "unite"}
             </Label>
-            <Input
-              type="number"
-              min={0}
-              value={newProduct.salePrice}
-              onChange={(e) =>
-                setNewProduct((p) => ({ ...p, salePrice: e.target.value }))
-              }
-            />
+            <div className="flex h-11 items-center rounded-xl border border-border bg-surface-2 px-4 text-sm tabular-nums">
+              {formatCurrency(suggestedCost)}
+            </div>
             <p className="text-[11px] text-muted-foreground">
-              Cout unitaire : {formatCurrency(suggestedCost)} · Suggestion :{" "}
-              {formatCurrency(suggestedSale)}
-              {isSalePriceBelowCost(
-                Number(newProduct.salePrice) || 0,
-                suggestedCost,
-              )
-                ? " — sous le cout !"
-                : ""}
+              Calcule : prix du lot ÷ {unitsInLot} unites (minimum pour ne pas
+              perdre)
             </p>
           </div>
           <div className="space-y-1.5">
@@ -946,6 +980,66 @@ export function PurchasesWorkspace() {
                 setNewProduct((p) => ({ ...p, minStock: e.target.value }))
               }
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Prix vente / {selectedCategory?.baseUnitName || "unite"}
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              value={newProduct.salePrice}
+              placeholder={`Min. conseille ${minSaleHint || suggestedCost}`}
+              onChange={(e) =>
+                setNewProduct((p) => ({ ...p, salePrice: e.target.value }))
+              }
+            />
+            <p
+              className={`text-[11px] ${
+                unitSale > 0 && potentialGainUnit < 0
+                  ? "text-destructive"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {unitSale > 0
+                ? `Gain potentiel / unite : ${formatCurrency(potentialGainUnit)}${
+                    isSalePriceBelowCost(unitSale, suggestedCost)
+                      ? " — sous le cout !"
+                      : ""
+                  }`
+                : `Saisie manuelle — ne pas descendre sous ${formatCurrency(suggestedCost)}`}
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Prix vente / {newProduct.purchasePackName || "lot"}
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              value={newProduct.packSalePrice}
+              placeholder={
+                unitSale > 0
+                  ? `Ex. ${unitSale * unitsInLot} (= ${unitsInLot} × unite)`
+                  : "Saisie manuelle"
+              }
+              onChange={(e) =>
+                setNewProduct((p) => ({ ...p, packSalePrice: e.target.value }))
+              }
+            />
+            <p
+              className={`text-[11px] ${
+                packSale > 0 && potentialGainPack < 0
+                  ? "text-destructive"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {packSale > 0
+                ? `Gain potentiel / lot : ${formatCurrency(potentialGainPack)}`
+                : packCost > 0
+                  ? `Cout du lot : ${formatCurrency(packCost)} — vide = ${unitsInLot} × prix unite`
+                  : "Pour vendre le lot entier (casier, carton…)"}
+            </p>
           </div>
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Description</Label>

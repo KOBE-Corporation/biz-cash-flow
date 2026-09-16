@@ -6,6 +6,15 @@ export type PurchaseStatus = "PENDING" | "RECEIVED" | "CANCELLED";
 
 export type PaymentMethod = "CASH" | "MOBILE_MONEY";
 
+export type CashDirection = "IN" | "OUT";
+
+export type CashSourceType =
+  | "SALE"
+  | "PURCHASE"
+  | "REFUND"
+  | "MANUAL"
+  | "ADJUSTMENT";
+
 export type AuditAction =
   | "CREATE"
   | "UPDATE"
@@ -212,6 +221,23 @@ export type AuditLog = {
   metadata?: Record<string, unknown>;
   userId: string;
   userName: string;
+  createdAt: Date;
+};
+
+/** Ligne du journal de caisse (entree ou sortie d'argent). */
+export type CashLedgerEntry = {
+  id: string;
+  direction: CashDirection;
+  amount: number;
+  paymentMethod?: PaymentMethod;
+  label: string;
+  description?: string;
+  reference?: string;
+  sourceType: CashSourceType;
+  sourceId?: string;
+  occurredAt: Date;
+  createdById: string;
+  createdByName: string;
   createdAt: Date;
 };
 

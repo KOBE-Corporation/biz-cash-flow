@@ -38,6 +38,19 @@ enum PaymentMethod {
   MOBILE_MONEY
 }
 
+enum CashDirection {
+  IN
+  OUT
+}
+
+enum CashSourceType {
+  SALE
+  PURCHASE
+  REFUND
+  MANUAL
+  ADJUSTMENT
+}
+
 enum AuditAction {
   CREATE
   UPDATE
@@ -70,6 +83,7 @@ model User {
   offersCreated         ProductSupplierOffer[] @relation("OfferCreatedBy")
   offersUpdated         ProductSupplierOffer[] @relation("OfferUpdatedBy")
   accountEntries        AccountEntry[]
+  cashLedgerEntries     CashLedgerEntry[]
   auditLogs             AuditLog[]
 
   createdAt DateTime @default(now())
@@ -297,6 +311,31 @@ model AccountEntry {
   @@index([recordedAt])
   @@index([type])
   @@index([createdById])
+}
+
+/// Journal de caisse : chaque entree / sortie d'argent (base du compte du jour).
+model CashLedgerEntry {
+  id            String          @id @default(cuid())
+  direction     CashDirection
+  /// Montant toujours positif ; le sens est donne par direction.
+  amount        Decimal         @db.Decimal(12, 2)
+  paymentMethod PaymentMethod?
+  label         String
+  description   String?
+  reference     String?
+  sourceType    CashSourceType
+  sourceId      String?
+  /// Instant de l'operation monetaire (filtre journalier).
+  occurredAt    DateTime        @default(now())
+  createdById   String
+  createdBy     User            @relation(fields: [createdById], references: [id])
+  createdAt     DateTime        @default(now())
+
+  @@index([occurredAt])
+  @@index([direction])
+  @@index([sourceType, sourceId])
+  @@index([createdById])
+  @@index([paymentMethod])
 }
 
 /// Journal d'activite pour tracabilite ulterieure (qui / quoi / quand).
