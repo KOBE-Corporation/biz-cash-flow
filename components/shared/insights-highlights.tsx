@@ -148,7 +148,7 @@ export function InsightsHighlights({
         </div>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -215,6 +215,35 @@ export function InsightsHighlights({
                     ? `${lowSold.qtySold} u. · ${formatCurrency(lowSold.revenue)}`
                     : "0 vente"}
                 </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">—</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Package className="h-4 w-4 text-success" />
+              Plus en stock
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {insights.mostInStock ? (
+              <>
+                <p className="truncate font-semibold">
+                  {insights.mostInStock.name}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {insights.mostInStock.quantity} u.
+                </p>
+                <Link
+                  href="/produits"
+                  className="mt-2 inline-block text-xs text-primary hover:underline"
+                >
+                  Voir produits
+                </Link>
               </>
             ) : (
               <p className="text-sm text-muted-foreground">—</p>

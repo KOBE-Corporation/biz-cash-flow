@@ -1,21 +1,31 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, Plus, Trash2, X } from "lucide-react";
+import {
+  Check,
+  PackageCheck,
+  Plus,
+  ShoppingCart,
+  Trash2,
+  X,
+} from "lucide-react";
 import { ProductSearchSelect } from "@/components/purchases/product-search-select";
 import { DataTable, type DataColumn } from "@/components/crud/data-table";
 import { FormDialog } from "@/components/crud/form-dialog";
 import { CrudToolbar } from "@/components/crud/toolbar";
 import { PackLevelsEditor } from "@/components/shared/pack-levels-editor";
 import { Badge, Chip } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader, StatCard } from "@/components/ui/page-header";
 import { ToastViewport, useToast } from "@/components/ui/toast";
 import { useConfirmDialog } from "@/components/ui/use-confirm-dialog";
+import { useBcfRefresh } from "@/hooks/use-bcf-refresh";
 import { useEntityList } from "@/hooks/use-entity-list";
+import { BCF_EVENTS, dispatchBcfEvent } from "@/lib/events/bcf-events";
 import {
   createCategory,
   listCategories,

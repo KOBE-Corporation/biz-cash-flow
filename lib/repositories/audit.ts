@@ -51,3 +51,7 @@ export function recordAudit(input: RecordAuditInput): AuditLog {
 export function listAuditLogs(limit = 100) {
   return getStore().auditLogs.slice(0, limit);
 }
+
+export function getAuditLog(id: string) {
+  return getStore().auditLogs.find((log) => log.id === id);
+}

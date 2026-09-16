@@ -18,14 +18,27 @@ export function listMovements() {
   );
 }
 
+export function getMovement(id: string) {
+  return getStore().movements.find((m) => m.id === id);
+}
+
 export function createMovement(
   input: MovementInput,
 ): RepoResult<StockMovement> {
   const product = getProduct(input.productId);
   if (!product) return { ok: false, error: "Produit introuvable" };
 
+  if (input.type === "ADJUSTMENT" && !input.notes?.trim()) {
+    return { ok: false, error: "Une note est obligatoire pour un ajustement" };
+  }
+
   const quantity = Math.abs(Math.trunc(input.quantity));
-  if (quantity <= 0) return { ok: false, error: "Quantite invalide" };
+  if (input.type !== "ADJUSTMENT" && quantity <= 0) {
+    return { ok: false, error: "Quantite invalide" };
+  }
+  if (input.type === "ADJUSTMENT" && Math.trunc(input.quantity) === 0) {
+    return { ok: false, error: "Quantite invalide" };
+  }
 
   let stockDelta = 0;
   if (input.type === "IN") stockDelta = quantity;

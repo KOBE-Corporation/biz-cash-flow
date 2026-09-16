@@ -7,7 +7,7 @@ export function DashboardActions() {
   return (
     <>
       <Link
-        href="/mouvements/nouveau"
+        href="/mouvements?nouveau=1"
         className={cn(buttonVariants({ variant: "outline" }))}
       >
         <ArrowLeftRight className="h-4 w-4" />
