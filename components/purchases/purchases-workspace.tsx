@@ -20,6 +20,7 @@ import {
   createCategory,
   listCategories,
 } from "@/lib/repositories/categories";
+import { listOffersForProduct } from "@/lib/repositories/offers";
 import {
   categoryNeedsLotFields,
   DEFAULT_CATEGORY_TRACKING,
@@ -733,6 +734,13 @@ export function PurchasesWorkspace() {
           </div>
           {lines.map((line, index) => {
             const product = products.find((p) => p.id === line.productId);
+            const offers = line.productId
+              ? listOffersForProduct(line.productId).slice(0, 3)
+              : [];
+            const unitCost =
+              (Number(line.unitPrice) || 0) /
+              Math.max(1, Number(line.unitsPerPurchasePack) || 1);
+            const bestKnown = offers[0]?.costPerBaseUnit;
             return (
               <div
                 key={line.key}
@@ -788,6 +796,32 @@ export function PurchasesWorkspace() {
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
+                {offers.length > 0 ? (
+                  <div className="flex flex-wrap items-center gap-1.5 px-0.5">
+                    <span className="text-[10px] text-muted-foreground">
+                      Prix connus :
+                    </span>
+                    {offers.map((offer) => (
+                      <Badge
+                        key={offer.id}
+                        variant={
+                          offer.costPerBaseUnit <= (bestKnown ?? Infinity)
+                            ? "success"
+                            : "outline"
+                        }
+                        className="text-[10px]"
+                      >
+                        {offer.supplierName}:{" "}
+                        {formatCurrency(offer.costPerBaseUnit)}/u.
+                      </Badge>
+                    ))}
+                    {bestKnown != null && unitCost > bestKnown * 1.05 ? (
+                      <span className="text-[10px] text-warning">
+                        +{formatCurrency(unitCost - bestKnown)} vs meilleur
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <div className="space-y-1">
                     <p className="text-[10px] text-muted-foreground">Lot</p>
