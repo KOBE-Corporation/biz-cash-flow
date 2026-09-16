@@ -454,7 +454,7 @@ export function SuppliersWorkspace() {
 
       <SupplierDetailDialog
         detail={detail}
-        open={!!selectedId}
+        open={!!selectedId && !!detail}
         onOpenChange={(open) => {
           if (!open) {
             setSelectedId(null);
@@ -577,16 +577,7 @@ function SupplierDetailDialog({
   onPurchase: (supplierId: string) => void;
   onDelete: (detail: SupplierDetail) => void;
 }) {
-  if (!detail) {
-    return (
-      <Dialog
-        open={open}
-        onOpenChange={onOpenChange}
-        title="Fournisseur"
-        description="Chargement…"
-      />
-    );
-  }
+  if (!detail) return null;
 
   return (
     <Dialog
