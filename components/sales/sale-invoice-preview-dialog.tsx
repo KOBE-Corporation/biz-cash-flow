@@ -15,6 +15,8 @@ import {
 } from "@/lib/sales/cart";
 import { siteConfig } from "@/lib/constants/site";
 import { getTodayFlagshipProductIds } from "@/lib/repositories/insights";
+import { getProduct } from "@/lib/repositories/products";
+import { cartLineRealizedGain } from "@/lib/sales/margin";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -69,6 +71,23 @@ export function SaleInvoicePreviewDialog({
   const discountAmount = resolveDiscountAmount(subtotal, discount, discountMode);
   const total = getCartTotal(lines, discount, discountMode);
   const flagshipIds = new Set(getTodayFlagshipProductIds(3));
+  const marginSummary = lines.reduce(
+    (acc, line) => {
+      const product = getProduct(line.productId);
+      const row = cartLineRealizedGain(line, product?.purchasePrice ?? 0);
+      acc.cost += row.cost;
+      acc.gain += row.gain;
+      if (row.belowCost) acc.belowCost += 1;
+      return acc;
+    },
+    { cost: 0, gain: 0, belowCost: 0 },
+  );
+  // Appliquer le ratio apres remise sur le gain
+  const paidRatio = subtotal > 0 ? total / subtotal : 1;
+  const realizedGain = Math.round(marginSummary.gain * paidRatio);
+  const realizedCost = Math.round(marginSummary.cost * paidRatio);
+  const realizedMarginPct =
+    total > 0 ? Math.round((realizedGain / total) * 1000) / 10 : 0;
   const isCash = paymentMethod === "CASH";
   const isCredit = paymentMethod === "CREDIT";
   const change = isCash ? getChangeDue(total, amountReceived) : 0;
@@ -217,6 +236,22 @@ export function SaleInvoicePreviewDialog({
               <span>Total TTC</span>
               <span className="tabular-nums">{formatCurrency(total)}</span>
             </div>
+            <div className="flex justify-between gap-3 text-success">
+              <span>Gain realise (estime)</span>
+              <span className="tabular-nums font-semibold">
+                {formatCurrency(realizedGain)} ({realizedMarginPct} %)
+              </span>
+            </div>
+            <div className="flex justify-between gap-3 text-[11px] text-muted-foreground">
+              <span>Cout revient fige</span>
+              <span className="tabular-nums">{formatCurrency(realizedCost)}</span>
+            </div>
+            {marginSummary.belowCost > 0 ? (
+              <p className="text-[11px] text-destructive">
+                {marginSummary.belowCost} ligne(s) sous le cout revient — vente
+                refusee a la confirmation.
+              </p>
+            ) : null}
             {isCash ? (
               <>
                 <div className="flex justify-between gap-3">

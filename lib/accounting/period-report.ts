@@ -168,11 +168,12 @@ export function buildPeriodReportHtml(insights: PeriodInsights) {
     Le fonds de caisse (monnaie) n'entre pas dans le CA ni dans les taux periodiques — pas de duplication entre jours.
   </div>
 
-  <div class="kpis">
+  <div class="kpis" style="grid-template-columns: repeat(5, 1fr);">
     <div class="kpi"><div class="label">CA encaisse</div><div class="value">${formatCurrency(insights.salesTotal)}</div><div class="sub">${insights.salesCount} ticket(s)</div></div>
-    <div class="kpi"><div class="label">Ticket moyen</div><div class="value">${formatCurrency(insights.avgTicket)}</div><div class="sub">Par vente</div></div>
-    <div class="kpi"><div class="label">Marge estimee</div><div class="value">${formatCurrency(insights.estimatedMargin)}</div><div class="sub">${insights.marginPercent} % du CA</div></div>
-    <div class="kpi"><div class="label">CA moyen / jour</div><div class="value">${formatCurrency(insights.avgDailySales)}</div><div class="sub">Net caisse ${formatCurrency(insights.operationalNet)}</div></div>
+    <div class="kpi"><div class="label">Sorties argent</div><div class="value">${formatCurrency(insights.cashOut)}</div><div class="sub">Achats / rembours. / manuels</div></div>
+    <div class="kpi"><div class="label">Net caisse</div><div class="value">${formatCurrency(insights.operationalNet)}</div><div class="sub">CA − sorties (hors float)</div></div>
+    <div class="kpi"><div class="label">Marge realisee</div><div class="value">${formatCurrency(insights.realizedMargin)}</div><div class="sub">${insights.marginPercent} % · cout fige a la vente</div></div>
+    <div class="kpi"><div class="label">Ticket moyen</div><div class="value">${formatCurrency(insights.avgTicket)}</div><div class="sub">Moy. /j ${formatCurrency(insights.avgDailySales)}</div></div>
   </div>
 
   <h2>Categories phares</h2>
@@ -188,7 +189,7 @@ export function buildPeriodReportHtml(insights: PeriodInsights) {
   <h2>Produits phares</h2>
   <table>
     <thead>
-      <tr><th>#</th><th>Produit</th><th>SKU</th><th class="num">Qte (u.)</th><th class="num">CA</th><th class="num">Gain est.</th><th class="num">Stock</th></tr>
+      <tr><th>#</th><th>Produit</th><th>SKU</th><th class="num">Qte (u.)</th><th class="num">CA</th><th class="num">Gain realise</th><th class="num">Stock</th></tr>
     </thead>
     <tbody>
       ${topRows || `<tr><td colspan="7">Aucune vente sur la periode</td></tr>`}

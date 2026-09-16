@@ -144,11 +144,17 @@ export function getDailyAccounting(date = new Date()): DailyAccounting {
   >();
 
   for (const inv of dayInvoices) {
+    const paidRatio =
+      inv.totalAmount > 0
+        ? Math.min(1, (inv.amountPaid ?? inv.totalAmount) / inv.totalAmount)
+        : 1;
     for (const item of inv.items) {
       if (!item.productId) continue;
       const product = products.find((p) => p.id === item.productId);
       const units = item.unitsOfBase ?? item.quantity;
-      const cost = (product?.purchasePrice ?? 0) * units;
+      const costPerBase = item.unitCost ?? product?.purchasePrice ?? 0;
+      const cost = costPerBase * units * paidRatio;
+      const revenue = item.quantity * item.unitPrice * paidRatio;
       const current = byProduct.get(item.productId) ?? {
         name: item.productName,
         qtySold: 0,
@@ -156,7 +162,7 @@ export function getDailyAccounting(date = new Date()): DailyAccounting {
         estimatedCost: 0,
       };
       current.qtySold += units;
-      current.revenue += item.quantity * item.unitPrice;
+      current.revenue += revenue;
       current.estimatedCost += cost;
       byProduct.set(item.productId, current);
     }

@@ -829,6 +829,7 @@ function buildInvoice(spec: SaleSpec): {
       unitPrice,
       unitsOfBase,
       packName: line.packName ?? product.baseUnitName,
+      unitCost: product.purchasePrice,
     };
   });
 

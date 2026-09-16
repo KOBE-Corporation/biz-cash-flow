@@ -10,6 +10,10 @@ import {
   resolveDiscountAmount,
   type DiscountMode,
 } from "@/lib/sales/cart";
+import {
+  cartLineRealizedGain,
+  resolveUnitCostAtSale,
+} from "@/lib/sales/margin";
 import type { CartLine, Invoice, PaymentMethod, RepoResult } from "@/lib/types";
 import { CURRENT_USER } from "@/lib/auth/current-user";
 
@@ -88,6 +92,16 @@ export function createSale(input: CreateSaleInput): CreateSaleResult {
         error: `Stock insuffisant pour « ${product.name} »`,
       };
     }
+    // Automatisation : interdit de vendre sous le cout revient (sauf credit a 0 deja bloque autrement)
+    if (!isCredit) {
+      const check = cartLineRealizedGain(line, product.purchasePrice);
+      if (check.belowCost) {
+        return {
+          ok: false,
+          error: `« ${product.name} » est sous le cout revient (marge ${check.gain} F). Augmentez le prix ou corrigez le cout.`,
+        };
+      }
+    }
   }
 
   const subtotal = getCartSubtotal(input.lines);
@@ -144,6 +158,7 @@ export function createSale(input: CreateSaleInput): CreateSaleResult {
         unitPrice: line.unitPrice,
         unitsOfBase: (line.unitsOfBase ?? 1) * line.quantity,
         packName: line.packName,
+        unitCost: resolveUnitCostAtSale(product),
       };
     }),
   });

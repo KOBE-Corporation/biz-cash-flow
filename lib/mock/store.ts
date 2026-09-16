@@ -46,7 +46,7 @@ function createSeedStore(): MockStore {
 }
 
 /** Invalide le store HMR obsolete (evite mismatch SSR/client). Bump pour recharger le seed. */
-const STORE_VERSION = 11;
+const STORE_VERSION = 12;
 
 const globalStore = globalThis as unknown as {
   __bcfMockStore?: MockStore;
@@ -142,6 +142,17 @@ export function getStore(): MockStore {
     for (const item of purchase.items) {
       if (!item.purchasePackName) item.purchasePackName = "piece";
       if (!item.unitsPerPurchasePack) item.unitsPerPurchasePack = 1;
+    }
+  }
+  // Migration : figer le cout revient sur les lignes de facture historiques
+  const productCost = new Map(
+    store.products.map((p) => [p.id, p.purchasePrice] as const),
+  );
+  for (const invoice of store.invoices) {
+    for (const item of invoice.items) {
+      if (item.unitCost == null && item.productId) {
+        item.unitCost = productCost.get(item.productId) ?? 0;
+      }
     }
   }
   return store;

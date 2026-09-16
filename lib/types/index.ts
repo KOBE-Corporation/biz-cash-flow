@@ -265,6 +265,11 @@ export type InvoiceItem = {
   /** Unites de base vendues (pour stock). */
   unitsOfBase?: number;
   packName?: string;
+  /**
+   * Cout de revient / unite de base fige a la vente.
+   * Permet une marge realisee precise meme si le prix d'achat change ensuite.
+   */
+  unitCost?: number;
 };
 
 export type CreditNoteItem = {

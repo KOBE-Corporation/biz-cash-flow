@@ -61,71 +61,86 @@ export function InsightsHighlights({
       ) : null}
 
       {showBusinessKpis ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <Receipt className="h-4 w-4 text-primary" />
-                Ticket moyen
+                CA encaisse
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="font-semibold tabular-nums">
-                {formatCurrency(insights.avgTicket)}
+                {formatCurrency(insights.salesTotal)}
               </p>
               <p className="text-xs text-muted-foreground">
-                {insights.salesCount} ticket(s)
+                {insights.salesCount} ticket(s) · moy.{" "}
+                {formatCurrency(insights.avgTicket)}
               </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Wallet className="h-4 w-4 text-destructive" />
+                Sorties argent
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="font-semibold tabular-nums text-destructive">
+                {formatCurrency(insights.cashOut)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Achats / rembours. / manuels
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Wallet className="h-4 w-4 text-success" />
+                Net caisse
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="font-semibold tabular-nums">
+                {formatCurrency(insights.operationalNet)}
+              </p>
+              <p className="text-xs text-muted-foreground">Hors float</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <TrendingUp className="h-4 w-4 text-success" />
-                Marge estimee
+                Marge realisee
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="font-semibold tabular-nums">
-                {formatCurrency(insights.estimatedMargin)}
+                {formatCurrency(insights.realizedMargin)}
               </p>
               <p className="text-xs text-muted-foreground">
-                {insights.marginPercent} % du CA
+                {insights.marginPercent} % du CA · cout fige a la vente
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <Wallet className="h-4 w-4 text-warning" />
-                Impayes clients
+                <Package className="h-4 w-4 text-warning" />
+                Potentiel stock
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="font-semibold tabular-nums">
-                {formatCurrency(insights.unpaidTotal)}
+                {formatCurrency(insights.catalogPotentialGain)}
               </p>
               <p className="text-xs text-muted-foreground">
-                {insights.unpaidCount} facture(s)
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <Package className="h-4 w-4 text-destructive" />
-                Alertes stock
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="font-semibold tabular-nums">
-                {insights.outOfStockCount + insights.lowStockCount}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {insights.outOfStockCount} rupture · {insights.lowStockCount}{" "}
-                faible
-                {insights.inactiveProductCount > 0
-                  ? ` · ${insights.inactiveProductCount} inactif(s)`
+                Si vente du stock actuel ·{" "}
+                {insights.catalogPotentialMarginPercent} %
+                {insights.belowCostProductCount > 0
+                  ? ` · ${insights.belowCostProductCount} sous cout`
                   : ""}
               </p>
             </CardContent>
@@ -342,7 +357,8 @@ export function InsightsHighlights({
                     ) : null}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    {c.qtySold} u. · {c.sharePercent} % CA · stock bas{" "}
+                    {c.qtySold} u. · {c.sharePercent} % CA · gain{" "}
+                    {formatCurrency(c.estimatedGain)} · stock bas{" "}
                     {c.lowStockCount + c.outOfStockCount}
                   </p>
                 </div>
@@ -380,7 +396,8 @@ export function InsightsHighlights({
                     ) : null}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    {p.qtySold} u. · stock {p.stockQty}
+                    {p.qtySold} u. · stock {p.stockQty} · gain{" "}
+                    {formatCurrency(p.estimatedGain)}
                     {p.categoryName ? ` · ${p.categoryName}` : ""}
                   </p>
                 </div>

@@ -402,12 +402,29 @@ export function ProductsWorkspace() {
     },
     {
       key: "price",
-      header: "Prix vente",
-      cell: (row) => (
-        <span className="text-xs tabular-nums">
-          {formatCurrency(row.salePrice)}
-        </span>
-      ),
+      header: "Prix / gain",
+      cell: (row) => {
+        const gain = row.salePrice - row.purchasePrice;
+        const pct =
+          row.salePrice > 0
+            ? Math.round((gain / row.salePrice) * 1000) / 10
+            : 0;
+        return (
+          <div className="text-xs">
+            <p className="tabular-nums font-medium">
+              {formatCurrency(row.salePrice)}
+            </p>
+            <p
+              className={`tabular-nums ${
+                gain < 0 ? "text-destructive" : "text-success"
+              }`}
+            >
+              {gain >= 0 ? "+" : ""}
+              {formatCurrency(gain)} ({pct} %)
+            </p>
+          </div>
+        );
+      },
     },
     {
       key: "status",

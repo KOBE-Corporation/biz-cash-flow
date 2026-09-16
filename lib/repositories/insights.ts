@@ -6,6 +6,12 @@ import {
 import { listCategories } from "@/lib/repositories/categories";
 import { listProducts } from "@/lib/repositories/products";
 import { sumOperationalCash } from "@/lib/cash/pnl";
+import {
+  catalogPotentialGain,
+  lineCostTotal,
+  lineRevenueTotal,
+  marginPercent,
+} from "@/lib/sales/margin";
 import type { PaymentMethod } from "@/lib/types";
 
 export type ProductSalesRank = {
@@ -65,11 +71,20 @@ export type PeriodInsights = {
   salesTotal: number;
   salesCount: number;
   avgTicket: number;
+  /** Sorties d'argent metier (achats, remboursements, manuels…). */
+  cashOut: number;
   operationalIn: number;
   operationalOut: number;
   operationalNet: number;
+  /** Marge realisee sur l'encaisse (CA ligne − cout fige × unites), pro-rata paiement. */
   estimatedMargin: number;
+  /** Alias explicite de estimatedMargin. */
+  realizedMargin: number;
   marginPercent: number;
+  /** Gain potentiel si tout le stock actif etait vendu aux prix actuels. */
+  catalogPotentialGain: number;
+  catalogPotentialMarginPercent: number;
+  belowCostProductCount: number;
   avgDailySales: number;
   topProducts: ProductSalesRank[];
   bottomProducts: ProductSalesRank[];
@@ -172,9 +187,10 @@ export function getPeriodInsights(
     for (const item of inv.items) {
       if (!item.productId) continue;
       const product = productMap.get(item.productId);
+      const fallbackCost = product?.purchasePrice ?? 0;
       const units = item.unitsOfBase ?? item.quantity;
-      const revenue = item.quantity * item.unitPrice * paidRatio;
-      const cost = (product?.purchasePrice ?? 0) * units * paidRatio;
+      const revenue = lineRevenueTotal(item) * paidRatio;
+      const cost = lineCostTotal(item, fallbackCost) * paidRatio;
       const current = byProduct.get(item.productId) ?? {
         name: item.productName,
         sku: item.productSku,
@@ -371,10 +387,8 @@ export function getPeriodInsights(
     Math.ceil((end.getTime() - start.getTime()) / (24 * 3600 * 1000)),
   );
   const estimatedMargin = ranked.reduce((s, p) => s + p.estimatedGain, 0);
-  const marginPercent =
-    salesTotal > 0
-      ? Math.round((estimatedMargin / salesTotal) * 1000) / 10
-      : 0;
+  const marginPct = marginPercent(estimatedMargin, salesTotal);
+  const catalog = catalogPotentialGain(products);
 
   return {
     period,
@@ -384,11 +398,16 @@ export function getPeriodInsights(
     salesTotal: Math.round(salesTotal),
     salesCount,
     avgTicket,
+    cashOut: ops.operationalOut,
     operationalIn: ops.operationalIn,
     operationalOut: ops.operationalOut,
     operationalNet: ops.operationalNet,
     estimatedMargin: Math.round(estimatedMargin),
-    marginPercent,
+    realizedMargin: Math.round(estimatedMargin),
+    marginPercent: marginPct,
+    catalogPotentialGain: catalog.potentialGain,
+    catalogPotentialMarginPercent: catalog.marginPercent,
+    belowCostProductCount: catalog.belowCostCount,
     avgDailySales: Math.round(salesTotal / daySpan),
     topProducts,
     bottomProducts,
