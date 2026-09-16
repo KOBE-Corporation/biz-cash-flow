@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { DataTable, type DataColumn } from "@/components/crud/data-table";
 import { FormDialog } from "@/components/crud/form-dialog";
 import { CrudToolbar } from "@/components/crud/toolbar";
@@ -261,6 +261,20 @@ export function ProductsWorkspace() {
     showToast(`« ${item.name} » supprime`, "success");
   };
 
+  const openPurchase = useCallback(
+    (product: Product) => {
+      const params = new URLSearchParams({
+        nouveau: "1",
+        productId: product.id,
+      });
+      if (product.supplierId) {
+        params.set("supplierId", product.supplierId);
+      }
+      router.push(`/achats?${params.toString()}`);
+    },
+    [router],
+  );
+
   const columns: DataColumn<Product>[] = [
     {
       key: "product",
@@ -310,14 +324,36 @@ export function ProductsWorkspace() {
       cell: (row) => {
         const tone = stockTone(row);
         return (
-          <Badge
-            variant={
-              tone === "out" ? "danger" : tone === "low" ? "warning" : "success"
-            }
-            className="tabular-nums"
+          <div
+            className="flex flex-wrap items-center gap-1.5"
+            onClick={(e) => e.stopPropagation()}
           >
-            {row.quantity} {row.baseUnitName}
-          </Badge>
+            <Badge
+              variant={
+                tone === "out"
+                  ? "danger"
+                  : tone === "low"
+                    ? "warning"
+                    : "success"
+              }
+              className="tabular-nums"
+            >
+              {row.quantity} {row.baseUnitName}
+            </Badge>
+            {tone === "out" || tone === "low" ? (
+              <Button
+                type="button"
+                size="sm"
+                variant={tone === "out" ? "destructive" : "outline"}
+                className="h-8 gap-1 px-2.5 text-xs"
+                onClick={() => openPurchase(row)}
+                title="Creer un achat pour reapprovisionner"
+              >
+                <ShoppingCart className="h-3.5 w-3.5" />
+                Acheter
+              </Button>
+            ) : null}
+          </div>
         );
       },
     },

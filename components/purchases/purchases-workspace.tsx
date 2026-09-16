@@ -251,12 +251,18 @@ export function PurchasesWorkspace() {
   );
 
   const openCreate = useCallback(
-    (opts?: { openProductForm?: boolean; supplierId?: string }) => {
+    (opts?: {
+      openProductForm?: boolean;
+      supplierId?: string;
+      productId?: string;
+    }) => {
       setEditingId(null);
       setSupplierId(opts?.supplierId ?? "");
       setNotes("");
-      // Ligne vide : l'utilisateur choisit ou cree le produit (evite un prefill surprise).
-      setLines([newLine("", "0")]);
+      const product = opts?.productId
+        ? listProducts().find((p) => p.id === opts.productId)
+        : null;
+      setLines([product ? lineFromProduct(product) : newLine("", "0")]);
       setError(null);
       setFormOpen(true);
       if (opts?.openProductForm) {
@@ -270,12 +276,14 @@ export function PurchasesWorkspace() {
   useEffect(() => {
     const nouveau = searchParams.get("nouveau") === "1";
     const supplierFromUrl = searchParams.get("supplierId");
+    const productFromUrl = searchParams.get("productId");
     if (!nouveau && !supplierFromUrl) return;
 
     if (nouveau) {
       openCreate({
-        openProductForm: !supplierFromUrl,
+        openProductForm: !supplierFromUrl && !productFromUrl,
         supplierId: supplierFromUrl ?? undefined,
+        productId: productFromUrl ?? undefined,
       });
       router.replace("/achats", { scroll: false });
       return;
